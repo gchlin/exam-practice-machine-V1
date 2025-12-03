@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <title>刷題機 V1 - Windows 98 風格</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="win98-window">
+    <div class="win98-titlebar">
+      <div>刷題機 V1 - Windows 98 Edition</div>
+      <div class="win98-titlebar-buttons">
+        <div class="win98-titlebar-button"></div>
+        <div class="win98-titlebar-button"></div>
+        <div class="win98-titlebar-button"></div>
+      </div>
+    </div>
+
+    <div class="win98-menubar">
+      檔案(F) 編輯(E) 檢視(V) 工具(T) 說明(H)
+    </div>
+
+    <div class="win98-content">
+      <!-- ===== 頁面 0：載入資料 ===== -->
+      <div id="page-load" class="page active">
+        <div class="section-title">步驟 1：載入題庫 data.csv</div>
+        <div class="field-row">
+          <span class="label">選擇 data.csv：</span>
+          <input id="file-input" type="file" accept=".csv" />
+          <button id="btn-load-csv" class="win98-button">載入題庫</button>
+        </div>
+        <div class="small">
+          建議：用簡單伺服器開啟（例如 VSCode Live Server 或 <code>python -m http.server</code>），<br/>
+          並把題庫放在 <code>data/</code> 資料夾，CSV 裡圖片路徑寫成 <code>data/images/xxx.webp</code>。
+        </div>
+        <div id="load-status" class="mt-8 small"></div>
+      </div>
+
+      <!-- ===== 頁面 1：題目列表 ===== -->
+      <div id="page-list" class="page">
+        <div class="section-title">題目列表</div>
+
+        <div class="toolbar">
+          <div class="toolbar-group">
+            <span class="label">篩選：</span>
+            <label class="small">
+              年份：
+              <select id="filter-year" class="win98-input">
+                <option value="">全部</option>
+              </select>
+            </label>
+            <label class="small">
+              學校：
+              <select id="filter-school" class="win98-input">
+                <option value="">全部</option>
+              </select>
+            </label>
+            <label class="small">
+              範圍：
+              <select id="filter-chapter" class="win98-input">
+                <option value="">全部</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="toolbar-group">
+            <span class="label">排序：</span>
+            <select id="sort-key" class="win98-input">
+              <option value="Year">Year</option>
+              <option value="LastDate">LastDate</option>
+            </select>
+          </div>
+
+          <div class="toolbar-group">
+            <span class="label">刷題模式：</span>
+            <div class="radio-group small">
+              <label><input type="radio" name="mode" value="normal" checked /> 一般</label>
+              <label><input type="radio" name="mode" value="chapter" /> 同章節三題</label>
+              <label><input type="radio" name="mode" value="school" /> 同學校三題</label>
+              <label><input type="radio" name="mode" value="difficulty" /> 同難度三題</label>
+            </div>
+          </div>
+
+          <button id="btn-start-predict" class="win98-button">
+            開始預測難度
+          </button>
+
+          <button id="btn-export-logs" class="win98-button">
+            匯出所有 log
+          </button>
+        </div>
+
+        <table id="questions-table">
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="chk-all" /></th>
+              <th>Q_ID</th>
+              <th>Year</th>
+              <th>School</th>
+              <th>Chapter</th>
+              <th>Difficulty</th>
+              <th>Predicted</th>
+              <th>LastDate</th>
+              <th>LastTime</th>
+              <th>Skipped</th>
+              <th>Image</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+
+        <div class="section-title mt-8">Hobbit Log（每日熱力圖）</div>
+        <div class="flex-row">
+          <div class="panel">
+            <div class="heatmap" id="heatmap"></div>
+            <div class="heat-legend">
+              <span class="small">顏色代表每日作答時間多寡</span><br/>
+              <span class="small">灰：0、淺綠：少、深綠：多</span>
+            </div>
+          </div>
+          <div class="panel" style="flex:1;">
+            <div id="hobbit-summary" class="small"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== 頁面 2：預測難度 ===== -->
+      <div id="page-predict" class="page">
+        <div class="section-title">預測難度（星星 1–5）</div>
+        <div class="mb-4 small">
+          每題點選預測難度後，按下「開始正式刷題」。
+        </div>
+        <div id="predict-list"></div>
+
+        <div class="mt-8">
+          <button id="btn-back-to-list-from-predict" class="win98-button">
+            回列表
+          </button>
+          <button id="btn-start-practice" class="win98-button">
+            開始正式刷題
+          </button>
+        </div>
+      </div>
+
+      <!-- ===== 頁面 3：正式刷題 ===== -->
+      <div id="page-practice" class="page">
+        <div class="section-title">正式刷題</div>
+
+        <div class="field-row">
+          <div class="highlight" id="practice-info">題目資訊</div>
+          <div>
+            <span class="label">計時：</span>
+            <span id="timer" class="timer-display">00:00</span>
+            <button id="btn-timer-toggle" class="win98-button">開始</button>
+            <button id="btn-timer-reset" class="win98-button">重設</button>
+          </div>
+        </div>
+
+        <div class="flex-row mt-4">
+          <div class="panel" style="flex:2;">
+            <div class="small mb-4">題目圖片（可放大）：</div>
+            <img id="practice-problem-img" class="problem-image" alt="題目圖片" />
+          </div>
+          <div class="panel" style="flex:1;">
+            <div class="small mb-4">解答 / 詳解：</div>
+            <img id="practice-answer-img" class="answer-image" alt="解答圖片" />
+            <div class="mt-4 small">
+              <button id="btn-toggle-answer" class="win98-button">顯示 / 隱藏 解答</button>
+              <div id="answer-status" class="small mt-4"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-8 field-row">
+          <span class="label">作答結果：</span>
+          <button id="btn-correct" class="win98-button">正確</button>
+          <button id="btn-wrong" class="win98-button">錯誤</button>
+          <button id="btn-skip" class="win98-button">跳過</button>
+
+          <button id="btn-prev" class="win98-button">上一題</button>
+          <button id="btn-next" class="win98-button">下一題</button>
+        </div>
+
+        <div class="mt-4 panel">
+          <div class="small">Notes（筆記）：</div>
+          <textarea id="practice-notes" class="win98-input"></textarea>
+        </div>
+
+        <div class="mt-4">
+          <button id="btn-end-session" class="win98-button">結束本輪並看 Summary</button>
+        </div>
+      </div>
+
+      <!-- ===== 頁面 4：Summary ===== -->
+      <div id="page-summary" class="page">
+        <div class="section-title">本輪 Summary</div>
+        <div id="summary-content" class="small"></div>
+
+        <div class="mt-8">
+          <button id="btn-summary-back" class="win98-button">回到題目列表</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="win98-statusbar">
+      <span id="status-left">就緒</span>
+      <span id="status-right">刷題機 V1</span>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
