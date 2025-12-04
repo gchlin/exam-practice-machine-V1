@@ -90,20 +90,33 @@
         <fieldset>
           <legend>📝 題目列表 (<span id="question-count">0</span> 題)</legend>
           
+          <!-- 顯示選項 -->
+          <div class="display-options">
+            <label>
+              <input type="checkbox" id="show-image" checked onchange="toggleImageColumn()">
+              顯示題目圖片
+            </label>
+            <label>
+              <input type="checkbox" id="show-text" checked onchange="toggleTextColumn()">
+              顯示題目文字
+            </label>
+          </div>
+          
           <div class="table-container">
-            <table id="question-table">
+            <table id="question-table" class="resizable-table">
               <thead>
                 <tr>
-                  <th width="5%"><input type="checkbox" id="select-all" onchange="toggleSelectAll()"></th>
-                  <th width="10%">序號</th>
-                  <th width="8%">年份</th>
-                  <th width="15%">學校</th>
-                  <th width="12%">章節</th>
-                  <th width="8%">難度</th>
-                  <th width="8%">練習次數</th>
-                  <th width="10%">最近練習</th>
-                  <th width="8%">跳過次數</th>
-                  <th width="16%">操作</th>
+                  <th class="col-checkbox"><input type="checkbox" id="select-all" onchange="toggleSelectAll()"></th>
+                  <th class="col-number">序號</th>
+                  <th class="col-year">年分</th>
+                  <th class="col-school">學校</th>
+                  <th class="col-chapter">章節</th>
+                  <th class="col-difficulty">難度</th>
+                  <th class="col-practice">練習次數</th>
+                  <th class="col-date">最近練習</th>
+                  <th class="col-skip">跳過</th>
+                  <th class="col-image">題目圖片</th>
+                  <th class="col-text">題目文字</th>
                 </tr>
               </thead>
               <tbody id="question-list">

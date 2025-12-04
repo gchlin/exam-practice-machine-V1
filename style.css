@@ -26,7 +26,7 @@
 
 body {
   font-family: 'MS Sans Serif', Tahoma, Arial, sans-serif;
-  font-size: 11px;
+  font-size: 13px;  /* 從 11px 加大到 13px */
   background-color: #008080;
   color: var(--win98-black);
   padding: 20px;
@@ -69,7 +69,7 @@ body {
 }
 
 .title-bar-text {
-  font-size: 11px;
+  font-size: 13px;  /* 從 11px 加大到 13px */
   letter-spacing: 0.5px;
 }
 
@@ -121,10 +121,10 @@ textarea {
   border: 1px solid var(--win98-shadow);
   border-right-color: var(--win98-white);
   border-bottom-color: var(--win98-white);
-  padding: 2px 4px;
+  padding: 3px 5px;  /* 從 2px 4px 加大 */
   background: var(--win98-white);
   font-family: inherit;
-  font-size: 11px;
+  font-size: 13px;  /* 從 11px 加大到 13px */
 }
 
 input[type="text"]:focus,
@@ -146,11 +146,11 @@ button {
   border-right-color: var(--win98-border-dark);
   border-bottom-color: var(--win98-border-dark);
   background: var(--win98-bg);
-  padding: 4px 12px;
+  padding: 5px 14px;  /* 從 4px 12px 加大 */
   font-family: inherit;
-  font-size: 11px;
+  font-size: 13px;  /* 從 11px 加大到 13px */
   cursor: pointer;
-  min-width: 75px;
+  min-width: 80px;  /* 從 75px 加大 */
 }
 
 button:hover {
@@ -215,6 +215,7 @@ input[type="radio"] {
 .filter-row label {
   font-weight: bold;
   min-width: 50px;
+  font-size: 13px;  /* 添加 */
 }
 
 .filter-row select,
@@ -226,7 +227,7 @@ input[type="radio"] {
 /* ==================== 表格 ==================== */
 .table-container {
   max-height: 400px;
-  overflow-y: auto;
+  overflow: auto;
   border: 1px solid var(--win98-shadow);
   background: var(--win98-white);
 }
@@ -235,7 +236,28 @@ table {
   width: 100%;
   border-collapse: collapse;
   background: var(--win98-white);
+  table-layout: auto;
 }
+
+/* 可調整大小的表格 */
+.resizable-table th {
+  position: relative;
+  resize: horizontal;
+  overflow: hidden;
+}
+
+/* 欄位寬度設定 */
+.col-checkbox { width: 40px; min-width: 40px; max-width: 40px; }
+.col-number { width: 60px; min-width: 50px; }
+.col-year { width: 70px; min-width: 60px; }
+.col-school { width: 120px; min-width: 100px; }
+.col-chapter { width: 150px; min-width: 120px; }
+.col-difficulty { width: 80px; min-width: 70px; }
+.col-practice { width: 80px; min-width: 70px; }
+.col-date { width: 100px; min-width: 90px; }
+.col-skip { width: 60px; min-width: 50px; }
+.col-image { width: 150px; min-width: 120px; }
+.col-text { width: 300px; min-width: 200px; max-width: 600px; }
 
 thead {
   position: sticky;
@@ -246,16 +268,18 @@ thead {
 
 th {
   text-align: left;
-  padding: 4px 8px;
+  padding: 6px 8px;  /* 從 4px 加大到 6px */
   border: 1px solid var(--win98-darkgray);
   font-weight: bold;
-  font-size: 10px;
+  font-size: 12px;  /* 從 10px 加大到 12px */
+  user-select: none;
 }
 
 td {
-  padding: 4px 8px;
+  padding: 6px 8px;  /* 從 4px 加大到 6px */
   border: 1px solid #e0e0e0;
-  font-size: 10px;
+  font-size: 12px;  /* 從 10px 加大到 12px */
+  vertical-align: middle;
 }
 
 tbody tr:hover {
@@ -265,6 +289,60 @@ tbody tr:hover {
 tbody tr:active {
   background: var(--win98-highlight);
   color: var(--win98-white);
+}
+
+/* 圖片欄位 */
+.question-thumbnail {
+  max-width: 120px;
+  max-height: 80px;
+  cursor: pointer;
+  border: 1px solid #ccc;
+  display: block;
+}
+
+.question-thumbnail:hover {
+  border-color: var(--win98-blue);
+  opacity: 0.8;
+}
+
+/* 文字欄位 */
+.question-text {
+  max-width: 100%;
+  max-height: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;  /* 從 11px 加大到 12px */
+  color: #333;
+}
+
+.question-text.expanded {
+  white-space: normal;
+  overflow: visible;
+}
+
+/* 隱藏欄位 */
+.col-image.hidden,
+.col-text.hidden {
+  display: none;
+}
+
+/* 顯示選項 */
+.display-options {
+  margin-bottom: 8px;
+  padding: 6px;
+  background: #f0f0f0;
+  border: 1px solid var(--win98-darkgray);
+  display: flex;
+  gap: 16px;
+}
+
+.display-options label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  font-size: 12px;
 }
 
 .stats-table {
@@ -303,17 +381,17 @@ tbody tr:active {
 /* ==================== 狀態列 ==================== */
 .status-bar {
   border-top: 1px solid var(--win98-white);
-  padding: 2px 4px;
+  padding: 3px 5px;  /* 從 2px 4px 加大 */
   display: flex;
   gap: 4px;
-  font-size: 10px;
+  font-size: 12px;  /* 從 10px 加大到 12px */
 }
 
 .status-bar-field {
   border: 1px solid var(--win98-shadow);
   border-right-color: var(--win98-white);
   border-bottom-color: var(--win98-white);
-  padding: 2px 6px;
+  padding: 3px 7px;  /* 從 2px 6px 加大 */
   background: var(--win98-bg);
 }
 
@@ -383,7 +461,7 @@ tbody tr:active {
   display: flex;
   gap: 16px;
   justify-content: center;
-  font-size: 10px;
+  font-size: 12px;  /* 從 10px 加大到 12px */
 }
 
 .hobbit-stats strong {
@@ -395,7 +473,7 @@ tbody tr:active {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px;
+  padding: 10px;  /* 從 8px 加大 */
   background: #e0e0e0;
   border: 1px solid var(--win98-darkgray);
   margin-bottom: 8px;
@@ -403,11 +481,11 @@ tbody tr:active {
 
 .question-source {
   font-weight: bold;
-  font-size: 12px;
+  font-size: 14px;  /* 從 12px 加大到 14px */
 }
 
 .progress-info {
-  font-size: 12px;
+  font-size: 14px;  /* 從 12px 加大到 14px */
   color: var(--win98-blue);
 }
 
@@ -416,7 +494,7 @@ tbody tr:active {
   align-items: center;
   gap: 8px;
   font-weight: bold;
-  font-size: 14px;
+  font-size: 16px;  /* 從 14px 加大到 16px */
   color: #c00;
 }
 
@@ -523,7 +601,7 @@ tbody tr:active {
 
 .difficulty-hint {
   margin-left: 16px;
-  font-size: 10px;
+  font-size: 12px;  /* 從 10px 加大到 12px */
   color: var(--win98-darkgray);
 }
 
@@ -596,7 +674,7 @@ tbody tr:active {
 .progress-text {
   text-align: center;
   margin-top: 4px;
-  font-size: 10px;
+  font-size: 12px;  /* 從 10px 加大到 12px */
 }
 
 /* ==================== 欄位行 ==================== */
@@ -609,6 +687,7 @@ tbody tr:active {
 
 .field-row label {
   min-width: 120px;
+  font-size: 13px;  /* 添加 */
 }
 
 .field-row input[type="text"],

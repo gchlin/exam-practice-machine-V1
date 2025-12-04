@@ -307,11 +307,12 @@ function applyFilters() {
     if (status === 'practiced' && !isPracticed(q.ExamID)) return false;
     if (status === 'unpracticed' && isPracticed(q.ExamID)) return false;
     
-    // 搜尋
+    // 搜尋 (包含題目文字)
     if (search) {
       const searchableText = [
         q.ExamID,
         q['Display Name'],
+        q['題目文字'],
         q.Year,
         q.School,
         q.Chapter
@@ -344,9 +345,13 @@ function renderQuestionList() {
   document.getElementById('question-count').textContent = filteredQuestions.length;
   
   if (filteredQuestions.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 20px;">沒有符合條件的題目</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; padding: 20px;">沒有符合條件的題目</td></tr>';
     return;
   }
+  
+  // 檢查顯示選項
+  const showImage = document.getElementById('show-image')?.checked ?? true;
+  const showText = document.getElementById('show-text')?.checked ?? true;
   
   filteredQuestions.forEach((q, index) => {
     const row = document.createElement('tr');
@@ -355,24 +360,44 @@ function renderQuestionList() {
     const lastPractice = getLastPracticeDate(q.ExamID);
     const skipCount = getSkipCount(q.ExamID);
     
-    row.innerHTML = `
-      <td><input type="checkbox" class="question-checkbox" data-exam-id="${q.ExamID}"></td>
-      <td>${index + 1}</td>
-      <td>${q.Year || '-'}</td>
-      <td>${q.School || '-'}</td>
-      <td>${q.Chapter || '-'}</td>
-      <td>${renderStars(q.Difficulty || 0)}</td>
-      <td>${practiceCount}</td>
-      <td>${lastPractice}</td>
-      <td>${skipCount}</td>
-      <td>
-        <button onclick="practiceOne('${q.ExamID}')" class="small">練習</button>
-        <button onclick="viewQuestion('${q.ExamID}')" class="small">查看</button>
+    // 準備圖片
+    const imageHtml = showImage ? `
+      <td class="col-image">
+        ${q['Problem Image'] ? 
+          `<img src="${q['Problem Image']}" class="question-thumbnail" alt="題目圖" onclick="showImagePreview('${q['Problem Image']}')">` : 
+          '-'}
       </td>
+    ` : '';
+    
+    // 準備文字 (從 Display Name 或其他欄位)
+    const questionText = q['Display Name'] || q['題目文字'] || q.ExamID || '';
+    const textHtml = showText ? `
+      <td class="col-text">
+        <div class="question-text" title="${questionText}">
+          ${questionText}
+        </div>
+      </td>
+    ` : '';
+    
+    row.innerHTML = `
+      <td class="col-checkbox"><input type="checkbox" class="question-checkbox" data-exam-id="${q.ExamID}"></td>
+      <td class="col-number">${index + 1}</td>
+      <td class="col-year">${q.Year || '-'}</td>
+      <td class="col-school">${q.School || '-'}</td>
+      <td class="col-chapter">${q.Chapter || '-'}</td>
+      <td class="col-difficulty">${renderStars(q.Difficulty || 0)}</td>
+      <td class="col-practice">${practiceCount}</td>
+      <td class="col-date">${lastPractice}</td>
+      <td class="col-skip">${skipCount}</td>
+      ${imageHtml}
+      ${textHtml}
     `;
     
     tbody.appendChild(row);
   });
+  
+  // 更新欄位顯示狀態
+  updateColumnVisibility();
 }
 
 // ==================== 輔助函數 ====================
@@ -519,7 +544,7 @@ function startPractice(mode) {
   const predictMode = document.getElementById('predict-mode').checked;
   
   if (selected.length === 0) {
-    showDialog('提示', '請先選擇要練習的題目！');
+    showDialog('提示', '請先勾選要練習的題目！');
     return;
   }
   
@@ -550,29 +575,6 @@ function startPractice(mode) {
   showPage('practice');
   displayQuestion(currentQuestionIndex);
   startTimer();
-}
-
-function practiceOne(examId) {
-  const question = allQuestions.find(q => q.ExamID === examId);
-  if (!question) return;
-  
-  practiceQuestions = [question];
-  currentQuestionIndex = 0;
-  practiceResults = [];
-  sessionStartTime = Date.now();
-  isPracticing = true;
-  
-  showPage('practice');
-  displayQuestion(0);
-  startTimer();
-}
-
-function viewQuestion(examId) {
-  const question = allQuestions.find(q => q.ExamID === examId);
-  if (!question) return;
-  
-  // TODO: 實作查看模式（不計時、不記錄）
-  showDialog('提示', `題目 ${examId}\n年份: ${question.Year}\n學校: ${question.School}`);
 }
 
 function displayQuestion(index) {
@@ -1157,6 +1159,58 @@ function shuffleArray(array) {
     const j = Math.floor(Math.random() * (i + 1));
     [array[i], array[j]] = [array[j], array[i]];
   }
+}
+
+// ==================== 欄位顯示控制 ====================
+
+function toggleImageColumn() {
+  updateColumnVisibility();
+}
+
+function toggleTextColumn() {
+  updateColumnVisibility();
+}
+
+function updateColumnVisibility() {
+  const showImage = document.getElementById('show-image')?.checked ?? true;
+  const showText = document.getElementById('show-text')?.checked ?? true;
+  
+  // 更新表頭
+  const table = document.getElementById('question-table');
+  if (table) {
+    const imageHeaders = table.querySelectorAll('th.col-image');
+    const textHeaders = table.querySelectorAll('th.col-text');
+    const imageCells = table.querySelectorAll('td.col-image');
+    const textCells = table.querySelectorAll('td.col-text');
+    
+    imageHeaders.forEach(th => {
+      th.style.display = showImage ? '' : 'none';
+    });
+    
+    textHeaders.forEach(th => {
+      th.style.display = showText ? '' : 'none';
+    });
+    
+    imageCells.forEach(td => {
+      td.style.display = showImage ? '' : 'none';
+    });
+    
+    textCells.forEach(td => {
+      td.style.display = showText ? '' : 'none';
+    });
+  }
+}
+
+function showImagePreview(imageSrc) {
+  const message = `<img src="${imageSrc}" style="max-width: 600px; max-height: 600px; border: 1px solid #ccc;">`;
+  
+  const modal = document.getElementById('dialog-modal');
+  const titleElem = document.getElementById('dialog-title');
+  const messageElem = document.getElementById('dialog-message');
+  
+  titleElem.textContent = '題目圖片預覽';
+  messageElem.innerHTML = message;
+  modal.style.display = 'flex';
 }
 
 // ==================== 初始化完成 ====================
