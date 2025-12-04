@@ -3,323 +3,336 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>刷題機 V1 - Windows 98 Edition</title>
-  <link rel="stylesheet" href="css/win98.css">
+  <title>刷題機 V1</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="window">
-    <div class="title-bar">
-      <div class="title-bar-text">刷題機 V1 - 載入題庫</div>
-      <div class="title-bar-controls">
-        <button aria-label="Minimize">_</button>
-        <button aria-label="Maximize">□</button>
-        <button aria-label="Close">✕</button>
+
+  <!-- 頁面 1: 主頁（題目列表 + Hobbit Log） -->
+  <div id="page-main" class="page active">
+    
+    <!-- 視窗標題列 -->
+    <div class="window">
+      <div class="title-bar">
+        <div class="title-bar-text">刷題機 V1 - 題目列表</div>
+        <div class="title-bar-controls">
+          <button aria-label="Minimize"></button>
+          <button aria-label="Maximize"></button>
+          <button aria-label="Close"></button>
+        </div>
+      </div>
+      
+      <div class="window-body">
+        
+        <!-- Hobbit Log 區域 -->
+        <fieldset class="hobbit-section">
+          <legend>📅 練習熱圖</legend>
+          <div id="hobbit-heatmap" class="heatmap-container">
+            <!-- 熱圖會在這裡動態生成 -->
+          </div>
+          <div id="daily-quote" class="daily-quote">
+            💪 每天進步一點點，堅持就是勝利！
+          </div>
+          <div class="hobbit-stats">
+            <span>本月練習: <strong id="month-practice-days">0</strong> 天</span>
+            <span>總題數: <strong id="month-total-questions">0</strong> 題</span>
+            <span>總時間: <strong id="month-total-time">0</strong> 分鐘</span>
+          </div>
+        </fieldset>
+        
+        <!-- 篩選器 -->
+        <fieldset>
+          <legend>🔍 篩選條件</legend>
+          <div class="filter-row">
+            <label>年份:</label>
+            <select id="filter-year">
+              <option value="">全部</option>
+            </select>
+            
+            <label>學校:</label>
+            <select id="filter-school">
+              <option value="">全部</option>
+            </select>
+            
+            <label>章節:</label>
+            <select id="filter-chapter">
+              <option value="">全部</option>
+            </select>
+            
+            <label>難度:</label>
+            <select id="filter-difficulty">
+              <option value="">全部</option>
+              <option value="1">1 星</option>
+              <option value="2">2 星</option>
+              <option value="3">3 星</option>
+              <option value="4">4 星</option>
+              <option value="5">5 星</option>
+            </select>
+          </div>
+          
+          <div class="filter-row">
+            <label>狀態:</label>
+            <select id="filter-status">
+              <option value="">全部</option>
+              <option value="practiced">已練習</option>
+              <option value="unpracticed">未練習</option>
+            </select>
+            
+            <label>搜尋:</label>
+            <input type="text" id="filter-search" placeholder="搜尋題目內容...">
+            
+            <button onclick="applyFilters()">🔍 套用篩選</button>
+            <button onclick="resetFilters()">🔄 重設</button>
+          </div>
+        </fieldset>
+        
+        <!-- 題目列表 -->
+        <fieldset>
+          <legend>📝 題目列表 (<span id="question-count">0</span> 題)</legend>
+          
+          <div class="table-container">
+            <table id="question-table">
+              <thead>
+                <tr>
+                  <th width="5%"><input type="checkbox" id="select-all" onchange="toggleSelectAll()"></th>
+                  <th width="10%">序號</th>
+                  <th width="8%">年份</th>
+                  <th width="15%">學校</th>
+                  <th width="12%">章節</th>
+                  <th width="8%">難度</th>
+                  <th width="8%">練習次數</th>
+                  <th width="10%">最近練習</th>
+                  <th width="8%">跳過次數</th>
+                  <th width="16%">操作</th>
+                </tr>
+              </thead>
+              <tbody id="question-list">
+                <!-- 題目列表會在這裡動態生成 -->
+              </tbody>
+            </table>
+          </div>
+        </fieldset>
+        
+        <!-- 底部操作按鈕 -->
+        <div class="button-row">
+          <div class="button-group">
+            <button onclick="loadQuestionBank()">📂 載入題庫</button>
+            <button onclick="exportData()">💾 匯出資料</button>
+            <button onclick="showStats()">📊 統計分析</button>
+          </div>
+          
+          <div class="button-group">
+            <label>
+              <input type="checkbox" id="predict-mode">
+              預測難度模式
+            </label>
+            <button onclick="startPractice('normal')" class="primary">▶️ 開始練習</button>
+            <button onclick="startPractice('random')">🎲 隨機3題</button>
+          </div>
+        </div>
+        
+      </div>
+      
+      <!-- 狀態列 -->
+      <div class="status-bar">
+        <div class="status-bar-field">就緒</div>
+        <div class="status-bar-field">題庫: <span id="total-questions">0</span> 題</div>
+        <div class="status-bar-field">已練習: <span id="practiced-count">0</span> 題</div>
+        <div class="status-bar-field" id="status-time">00:00:00</div>
       </div>
     </div>
-
-    <div class="window-body">
-      <div id="loadingScreen">
-        <fieldset>
-          <legend>歡迎使用刷題機</legend>
+    
+  </div>
+  
+  <!-- 頁面 2: 刷題頁面 -->
+  <div id="page-practice" class="page">
+    
+    <div class="window practice-window">
+      <div class="title-bar">
+        <div class="title-bar-text">刷題機 V1 - 練習中</div>
+        <div class="title-bar-controls">
+          <button aria-label="Minimize"></button>
+          <button aria-label="Maximize"></button>
+          <button aria-label="Close" onclick="confirmExit()"></button>
+        </div>
+      </div>
+      
+      <div class="window-body">
+        
+        <!-- 題目資訊列 -->
+        <div class="practice-header">
+          <div class="question-source">
+            題目來源: <strong id="current-source">114 蘭陽女中</strong>
+          </div>
+          <div class="progress-info">
+            <span id="current-progress">1 / 10</span>
+          </div>
+          <div class="timer-display">
+            ⏱️ <span id="practice-timer">00:00:00</span>
+            <button id="pause-btn" onclick="togglePause()">⏸️</button>
+          </div>
+        </div>
+        
+        <!-- 題目顯示區 -->
+        <div class="question-display">
+          <div class="image-container">
+            <img id="question-image" src="" alt="題目圖片">
+          </div>
           
-          <div style="text-align: center; margin: 20px 0;">
-            <div style="font-size: 48px; margin-bottom: 16px;">📚</div>
-            <h2 style="margin: 0 0 8px 0;">Windows 98 復古風格刷題系統</h2>
-            <p style="color: var(--win98-darkgray);">讓我們開始您的學習之旅</p>
-          </div>
-
-          <hr>
-
-          <div class="field-row">
-            <label style="min-width: 120px;">
-              <input type="radio" name="loadMode" id="modeOnline" value="online" checked>
-              線上題庫
-            </label>
-            <span style="flex: 1; font-size: 10px; color: var(--win98-darkgray);">
-              使用已上傳到伺服器的題庫檔案
-            </span>
-          </div>
-
-          <div class="field-row">
-            <label style="min-width: 120px;">
-              <input type="radio" name="loadMode" id="modeLocal" value="local">
-              本地檔案
-            </label>
-            <input type="file" id="dataFile" accept=".csv" style="flex: 1;" disabled>
-          </div>
-
-          <div class="field-row">
-            <label for="imagesFolder">題目圖片資料夾路徑:</label>
-            <input type="text" id="imagesFolder" value="./images/" style="flex: 1;">
-          </div>
-
-          <hr>
-
-          <div id="loadStatus" class="hidden" style="margin: 16px 0; padding: 12px; background: var(--win98-white);">
-            <div style="font-weight: bold; margin-bottom: 8px;">載入狀態:</div>
-            <div id="statusText">準備中...</div>
-            <div class="progress-bar" style="margin-top: 8px;">
-              <div class="progress-fill" id="progressFill" style="width: 0%;"></div>
+          <div class="answer-solution-container" style="display: none;">
+            <div class="image-row">
+              <div class="image-col">
+                <h4>📋 解答</h4>
+                <img id="answer-image" src="" alt="解答">
+              </div>
+              <div class="image-col">
+                <h4>📖 詳解</h4>
+                <img id="solution-image" src="" alt="詳解">
+              </div>
             </div>
           </div>
-
-          <div class="button-group center">
-            <button id="loadBtn">
-              <span>▶</span> 開始使用
-            </button>
+        </div>
+        
+        <!-- 控制按鈕 -->
+        <div class="practice-controls">
+          <div class="nav-buttons">
+            <button onclick="prevQuestion()" id="prev-btn">⬅️ 上一題 (←)</button>
+            <button onclick="nextQuestion()" id="next-btn">下一題 ➡️ (→)</button>
           </div>
-        </fieldset>
-
-        <fieldset>
-          <legend>系統資訊</legend>
-          <div style="font-size: 10px; color: var(--win98-darkgray);">
-            <p><strong>版本:</strong> V1.0.0</p>
-            <p><strong>風格:</strong> Windows 98 Retro</p>
-            <p><strong>功能:</strong> 題庫管理 / 難度預測 / 練習追蹤 / 統計分析</p>
-            <p><strong>資料儲存:</strong> 使用瀏覽器 localStorage</p>
-          </div>
-        </fieldset>
-      </div>
-
-      <div id="continueScreen" class="hidden">
-        <fieldset>
-          <legend>發現未完成的練習</legend>
           
-          <div style="text-align: center; margin: 20px 0;">
-            <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
-            <h3 style="margin: 0 0 8px 0;">您有未完成的練習會話</h3>
-            <p style="color: var(--win98-darkgray);">是否要繼續上次的練習?</p>
-          </div>
-
-          <hr>
-
-          <div id="sessionInfo" style="background: var(--win98-white); padding: 12px; margin: 12px 0;">
-            <!-- 會話資訊將由 JS 填入 -->
-          </div>
-
-          <div class="button-group center">
-            <button id="continueBtn">
-              <span>✓</span> 繼續練習
+          <div class="action-buttons">
+            <button onclick="toggleAnswerSolution()">
+              <span id="show-answer-text">顯示解答/詳解</span>
             </button>
-            <button id="newSessionBtn">
-              <span>✕</span> 開始新的練習
-            </button>
+            <button onclick="markCorrect()" class="success">✓ 答對 (C)</button>
+            <button onclick="markIncorrect()" class="danger">✗ 答錯 (X)</button>
+            <button onclick="markSkip()" class="warning">⊘ 跳過 (S)</button>
+          </div>
+        </div>
+        
+        <!-- 難度評價與筆記 -->
+        <fieldset>
+          <legend>⭐ 難度評價</legend>
+          <div class="difficulty-rating">
+            <span class="star" data-value="1" onclick="setDifficulty(1)">☆</span>
+            <span class="star" data-value="2" onclick="setDifficulty(2)">☆</span>
+            <span class="star" data-value="3" onclick="setDifficulty(3)">☆</span>
+            <span class="star" data-value="4" onclick="setDifficulty(4)">☆</span>
+            <span class="star" data-value="5" onclick="setDifficulty(5)">☆</span>
+            <span class="difficulty-hint">按 1-5 鍵快速評分</span>
           </div>
         </fieldset>
+        
+        <fieldset>
+          <legend>📝 筆記</legend>
+          <textarea id="practice-notes" rows="3" placeholder="記錄解題心得、易錯點..."></textarea>
+        </fieldset>
+        
+        <!-- 底部按鈕 -->
+        <div class="button-row">
+          <button onclick="saveForLater()">💾 改天再戰</button>
+          <button onclick="backToList()">⬅️ 回到列表</button>
+          <button onclick="finishPractice()" class="primary">✓ 完成練習</button>
+        </div>
+        
+      </div>
+      
+      <!-- 狀態列 -->
+      <div class="status-bar">
+        <div class="status-bar-field"><span id="status-message">練習中...</span></div>
+        <div class="status-bar-field">答對: <span id="correct-count">0</span></div>
+        <div class="status-bar-field">答錯: <span id="incorrect-count">0</span></div>
+        <div class="status-bar-field">跳過: <span id="skip-count">0</span></div>
       </div>
     </div>
-
-    <div class="status-bar">
-      <div class="status-bar-field">準備就緒</div>
-      <div class="status-bar-field" id="statusTime"></div>
+    
+  </div>
+  
+  <!-- 統計分析彈窗 -->
+  <div id="stats-modal" class="modal" style="display: none;">
+    <div class="window modal-window">
+      <div class="title-bar">
+        <div class="title-bar-text">📊 統計分析</div>
+        <div class="title-bar-controls">
+          <button aria-label="Close" onclick="closeStatsModal()"></button>
+        </div>
+      </div>
+      <div class="window-body">
+        <div id="stats-content">
+          <!-- 統計內容會動態生成 -->
+        </div>
+        <div class="button-row center">
+          <button onclick="closeStatsModal()">關閉</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 載入題庫彈窗 -->
+  <div id="load-modal" class="modal" style="display: none;">
+    <div class="window modal-window-small">
+      <div class="title-bar">
+        <div class="title-bar-text">📂 載入題庫</div>
+        <div class="title-bar-controls">
+          <button aria-label="Close" onclick="closeLoadModal()"></button>
+        </div>
+      </div>
+      <div class="window-body">
+        <fieldset>
+          <legend>選擇載入方式</legend>
+          
+          <div class="field-row">
+            <input type="radio" name="load-mode" id="load-online" value="online" checked>
+            <label for="load-online">線上題庫 (使用伺服器上的 data.csv)</label>
+          </div>
+          
+          <div class="field-row">
+            <input type="radio" name="load-mode" id="load-local" value="local">
+            <label for="load-local">本地檔案</label>
+          </div>
+          
+          <div class="field-row" id="local-file-row" style="display: none;">
+            <label>選擇 CSV 檔案:</label>
+            <input type="file" id="csv-file-input" accept=".csv">
+          </div>
+        </fieldset>
+        
+        <div class="progress-container" id="load-progress" style="display: none;">
+          <div class="progress-bar">
+            <div class="progress-fill" id="load-progress-fill"></div>
+          </div>
+          <div class="progress-text" id="load-progress-text">載入中...</div>
+        </div>
+        
+        <div class="button-row center">
+          <button onclick="executeLoad()" class="primary">開始載入</button>
+          <button onclick="closeLoadModal()">取消</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 通用對話框 -->
+  <div id="dialog-modal" class="modal" style="display: none;">
+    <div class="window modal-window-small">
+      <div class="title-bar">
+        <div class="title-bar-text" id="dialog-title">訊息</div>
+        <div class="title-bar-controls">
+          <button aria-label="Close" onclick="closeDialog()"></button>
+        </div>
+      </div>
+      <div class="window-body">
+        <div class="dialog-content">
+          <div id="dialog-message"></div>
+        </div>
+        <div class="button-row center">
+          <button onclick="closeDialog()" id="dialog-ok-btn">確定</button>
+          <button onclick="closeDialog()" id="dialog-cancel-btn" style="display: none;">取消</button>
+        </div>
+      </div>
     </div>
   </div>
 
-  <script type="module">
-    import { dataManager } from './js/dataManager.js';
-    import { stateManager } from './js/stateManager.js';
-    import { showDialog, showConfirm } from './js/utils.js';
-
-    const dataFileInput = document.getElementById('dataFile');
-    const loadBtn = document.getElementById('loadBtn');
-    const loadStatus = document.getElementById('loadStatus');
-    const statusText = document.getElementById('statusText');
-    const progressFill = document.getElementById('progressFill');
-    const loadingScreen = document.getElementById('loadingScreen');
-    const continueScreen = document.getElementById('continueScreen');
-    const sessionInfo = document.getElementById('sessionInfo');
-    const modeOnline = document.getElementById('modeOnline');
-    const modeLocal = document.getElementById('modeLocal');
-
-    // 更新時間
-    function updateTime() {
-      const now = new Date();
-      const timeStr = now.toLocaleTimeString('zh-TW', { hour12: false });
-      document.getElementById('statusTime').textContent = timeStr;
-    }
-    updateTime();
-    setInterval(updateTime, 1000);
-
-    // 模式切換
-    function updateLoadMode() {
-      const isLocal = modeLocal.checked;
-      dataFileInput.disabled = !isLocal;
-      loadBtn.disabled = isLocal && !dataFileInput.files.length;
-      
-      if (!isLocal) {
-        loadBtn.disabled = false;
-      }
-    }
-
-    modeOnline.addEventListener('change', updateLoadMode);
-    modeLocal.addEventListener('change', updateLoadMode);
-
-    // 檔案選擇事件
-    dataFileInput.addEventListener('change', (e) => {
-      if (modeLocal.checked) {
-        loadBtn.disabled = !e.target.files.length;
-      }
-    });
-
-    // 初始化按鈕狀態
-    updateLoadMode();
-
-    // 檢查是否在本地環境
-    function checkEnvironment() {
-      const protocol = window.location.protocol;
-      
-      if (protocol === 'file:') {
-        // 本地環境，建議使用本地模式或本地伺服器
-        const warning = document.createElement('div');
-        warning.style.cssText = 'background: #fff3cd; border: 2px solid #ffc107; padding: 12px; margin: 12px 0; border-radius: 4px;';
-        warning.innerHTML = `
-          <div style="font-weight: bold; margin-bottom: 8px;">⚠️ 偵測到本地環境</div>
-          <div style="font-size: 10px;">
-            <p style="margin: 4px 0;">您正在使用 file:// 協議開啟，線上模式可能無法正常運作。</p>
-            <p style="margin: 4px 0;"><strong>建議方案：</strong></p>
-            <ul style="margin: 4px 0 4px 16px; padding: 0;">
-              <li>使用「本地檔案」模式上傳 data.csv</li>
-              <li>或使用本地伺服器：<code style="background: #f5f5f5; padding: 2px 4px;">python -m http.server 8000</code></li>
-              <li>或部署到 GitHub Pages</li>
-            </ul>
-          </div>
-        `;
-        
-        document.querySelector('.window-body').insertBefore(warning, document.querySelector('fieldset'));
-        
-        // 自動切換到本地模式
-        modeLocal.checked = true;
-        updateLoadMode();
-      }
-    }
-
-    // 執行環境檢查
-    checkEnvironment();
-
-    // 載入題庫按鈕
-    loadBtn.addEventListener('click', async () => {
-      const isLocal = modeLocal.checked;
-      
-      if (isLocal) {
-        const file = dataFileInput.files[0];
-        if (!file) return;
-        
-        await loadQuestionBank(file);
-      } else {
-        // 載入線上題庫
-        await loadQuestionBank('./data.csv');
-      }
-    });
-
-    // 通用載入函數
-    async function loadQuestionBank(source) {
-      try {
-        loadStatus.classList.remove('hidden');
-        loadBtn.disabled = true;
-
-        // 步驟 1: 載入題庫
-        statusText.textContent = '正在載入題庫...';
-        progressFill.style.width = '25%';
-        await dataManager.loadQuestions(source);
-
-        // 步驟 2: 載入練習紀錄
-        statusText.textContent = '正在載入練習紀錄...';
-        progressFill.style.width = '50%';
-        await dataManager.loadFromLocalStorage();
-
-        // 步驟 3: 檢查未完成會話
-        statusText.textContent = '檢查未完成的會話...';
-        progressFill.style.width = '75%';
-        
-        const hasUnfinished = stateManager.hasUnfinishedSession();
-        
-        // 步驟 4: 完成
-        statusText.textContent = '載入完成!';
-        progressFill.style.width = '100%';
-
-        setTimeout(() => {
-          if (hasUnfinished) {
-            showContinueScreen();
-          } else {
-            goToList();
-          }
-        }, 500);
-
-      } catch (error) {
-        console.error('載入失敗:', error);
-        
-        let errorMessage = '載入題庫失敗。\n\n';
-        
-        if (window.location.protocol === 'file:') {
-          errorMessage += '您正在使用本地檔案系統 (file://)。\n\n';
-          errorMessage += '解決方案：\n';
-          errorMessage += '1. 切換到「本地檔案」模式並上傳 CSV\n';
-          errorMessage += '2. 或使用本地伺服器：\n';
-          errorMessage += '   python -m http.server 8000\n';
-          errorMessage += '3. 或部署到 GitHub Pages';
-        } else if (error.message && error.message.includes('404')) {
-          errorMessage += '找不到 data.csv 檔案。\n\n';
-          errorMessage += '請確認：\n';
-          errorMessage += '1. data.csv 已上傳到伺服器\n';
-          errorMessage += '2. 檔案路徑正確\n';
-          errorMessage += '3. 檔名大小寫一致';
-        } else {
-          errorMessage += '錯誤詳情：' + error.message + '\n\n';
-          errorMessage += '請檢查：\n';
-          errorMessage += '1. 檔案格式是否正確 (UTF-8 編碼)\n';
-          errorMessage += '2. CSV 格式是否符合規範';
-        }
-        
-        await showDialog('錯誤', errorMessage);
-        loadBtn.disabled = false;
-        loadStatus.classList.add('hidden');
-      }
-    }
-
-    // 顯示繼續畫面
-    function showContinueScreen() {
-      const session = stateManager.currentSession;
-      const progress = stateManager.getProgress();
-      
-      sessionInfo.innerHTML = `
-        <div><strong>模式:</strong> ${getModeName(session.mode)}</div>
-        <div><strong>進度:</strong> ${progress.current} / ${progress.total} (${progress.percentage}%)</div>
-        <div><strong>儲存時間:</strong> ${new Date(session.startTime).toLocaleString('zh-TW')}</div>
-      `;
-      
-      loadingScreen.classList.add('hidden');
-      continueScreen.classList.remove('hidden');
-    }
-
-    // 繼續按鈕
-    document.getElementById('continueBtn').addEventListener('click', () => {
-      window.location.href = 'practice.html';
-    });
-
-    // 新會話按鈕
-    document.getElementById('newSessionBtn').addEventListener('click', async () => {
-      const confirm = await showConfirm('確認', '這將清除未完成的練習進度，確定要開始新的練習嗎?');
-      if (confirm) {
-        stateManager.clearSession();
-        goToList();
-      }
-    });
-
-    // 前往列表頁
-    function goToList() {
-      window.location.href = 'list.html';
-    }
-
-    // 取得模式名稱
-    function getModeName(mode) {
-      const names = {
-        'normal': '一般模式',
-        'same-chapter': '同章節模式',
-        'same-school': '同學校模式',
-        'same-difficulty': '同難度模式'
-      };
-      return names[mode] || mode;
-    }
-  </script>
+  <script src="app.js"></script>
 </body>
 </html>
