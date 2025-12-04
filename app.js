@@ -92,6 +92,9 @@ function bindEvents() {
   document.getElementById('show-image').addEventListener('change', toggleImageColumn);
   document.getElementById('show-text').addEventListener('change', toggleTextColumn);
   
+  // 重新載入題庫
+  document.getElementById('btn-reload-questions').addEventListener('click', reloadQuestions);
+  
   // 匯出紀錄
   document.getElementById('btn-export-logs').addEventListener('click', exportLogs);
   
@@ -176,7 +179,15 @@ async function loadQuestionBank() {
       progressText.textContent = '正在下載題庫...';
       progressFill.style.width = '25%';
       
-      const response = await fetch('./data.csv');
+      // 加上時間戳記避免快取
+      const timestamp = new Date().getTime();
+      const response = await fetch(`./data.csv?t=${timestamp}`, {
+        cache: 'no-store',  // 不使用快取
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
+      });
       if (!response.ok) throw new Error('無法載入 data.csv');
       csvText = await response.text();
     } else {
@@ -216,6 +227,41 @@ async function loadQuestionBank() {
     console.error('載入失敗:', error);
     progressContainer.style.display = 'none';
     showMessage('錯誤', `載入失敗: ${error.message}`);
+  }
+}
+
+async function reloadQuestions() {
+  if (!confirm('確定要重新下載題庫嗎？\n\n這會清除快取並強制下載最新版本。\n（答題記錄不會被清除）')) {
+    return;
+  }
+  
+  try {
+    // 加上時間戳記強制重新下載
+    const timestamp = new Date().getTime();
+    const response = await fetch(`./data.csv?t=${timestamp}`, {
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
+      }
+    });
+    
+    if (!response.ok) throw new Error('無法載入 data.csv');
+    
+    const csvText = await response.text();
+    allQuestions = parseCSV(csvText);
+    
+    // 儲存到 localStorage
+    saveToLocalStorage();
+    
+    // 重新初始化列表
+    initListPage();
+    
+    showMessage('成功', `題庫已更新！\n共載入 ${allQuestions.length} 題`);
+    
+  } catch (error) {
+    console.error('更新失敗:', error);
+    showMessage('錯誤', `更新失敗: ${error.message}\n\n請檢查：\n1. data.csv 是否存在\n2. 網路連線是否正常\n3. GitHub Pages 是否已部署`);
   }
 }
 
