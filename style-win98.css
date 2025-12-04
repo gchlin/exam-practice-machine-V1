@@ -1,0 +1,925 @@
+/* ========================================
+   刷題機 V1 - Windows 98 風格
+   緊湊版 CSS
+   ======================================== */
+
+/* ==================== 基礎設定 ==================== */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "MS Sans Serif", "Tahoma", system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  background: #008080;
+  color: #000;
+  padding: 12px;
+}
+
+/* ==================== 主視窗 ==================== */
+.win98-window {
+  background: #c0c0c0;
+  border: 2px outset #fff;
+  box-shadow: 2px 2px 0 #000;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* ==================== 標題列 ==================== */
+.win98-titlebar {
+  background: linear-gradient(90deg, #000080 0%, #1084d0 100%);
+  color: #fff;
+  padding: 3px 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: bold;
+  font-size: 13px;
+}
+
+.win98-titlebar-text {
+  padding-left: 2px;
+}
+
+.win98-titlebar-buttons {
+  display: flex;
+  gap: 2px;
+}
+
+.win98-titlebar-button {
+  width: 16px;
+  height: 14px;
+  border: 1px outset #c0c0c0;
+  background: #c0c0c0;
+  font-size: 9px;
+  line-height: 12px;
+  text-align: center;
+  color: #000;
+  font-weight: bold;
+  cursor: default;
+  user-select: none;
+}
+
+/* ==================== 選單列 ==================== */
+.win98-menubar {
+  background: #c0c0c0;
+  padding: 2px 4px;
+  border-bottom: 1px solid #fff;
+  font-size: 12px;
+}
+
+/* ==================== 內容區 - 固定高度 ==================== */
+.win98-content {
+  padding: 8px;
+  height: calc(100vh - 120px);
+  overflow: hidden;
+}
+
+.page {
+  height: 100%;
+  display: none;
+  flex-direction: column;
+}
+
+.page.active {
+  display: flex;
+}
+
+/* ==================== 頂部資訊欄 ==================== */
+.top-info-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 8px;
+  background: #e0e0e0;
+  border: 2px inset #808080;
+  margin-bottom: 6px;
+  gap: 12px;
+  flex-wrap: nowrap;
+}
+
+.info-left {
+  flex-shrink: 0;
+}
+
+.info-center {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+}
+
+.info-right {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.section-title-inline {
+  font-weight: bold;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+/* ==================== 內聯熱力圖 ==================== */
+.heatmap-inline {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, 14px);
+  gap: 2px;
+  max-width: 600px;
+  justify-content: center;
+}
+
+.heatmap-inline .heat-cell {
+  width: 12px;
+  height: 12px;
+  border: 1px solid #808080;
+  cursor: pointer;
+}
+
+/* ==================== 本月統計 ==================== */
+.month-stats {
+  text-align: right;
+  margin-bottom: 2px;
+}
+
+.motivational-quote {
+  font-size: 10px;
+  color: #000080;
+  font-style: italic;
+  margin-top: 2px;
+}
+
+.top-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+/* ==================== 表格容器 - 可滾動 ==================== */
+.table-container {
+  flex: 1;
+  overflow: auto;
+  border: 1px solid #808080;
+  background: #fff;
+  margin-top: 4px;
+  min-height: 0;
+}
+
+/* ==================== 狀態列 ==================== */
+.win98-statusbar {
+  border-top: 1px solid #fff;
+  background: #c0c0c0;
+  padding: 2px 4px;
+  font-size: 11px;
+  display: flex;
+  justify-content: space-between;
+}
+
+#status-left,
+#status-right {
+  border: 1px inset #808080;
+  padding: 1px 4px;
+}
+
+#status-left {
+  flex: 1;
+}
+
+/* ==================== 按鈕 ==================== */
+.win98-button {
+  border: 2px outset #fff;
+  background: #c0c0c0;
+  padding: 3px 12px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.win98-button:hover {
+  background: #d4d4d4;
+}
+
+.win98-button:active {
+  border: 2px inset #808080;
+  padding: 4px 11px 2px 13px;
+}
+
+.win98-button:disabled {
+  color: #808080;
+  cursor: default;
+}
+
+.win98-button.small {
+  padding: 2px 8px;
+  font-size: 11px;
+}
+
+/* ==================== 輸入框 ==================== */
+.win98-input,
+input[type="text"],
+input[type="file"],
+select,
+textarea {
+  border: 1px inset #808080;
+  background: #fff;
+  padding: 2px 4px;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+input[type="file"] {
+  font-size: 11px;
+}
+
+textarea {
+  width: 100%;
+  min-height: 80px;
+  resize: vertical;
+}
+
+/* ==================== 工具列 ==================== */
+.toolbar {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.toolbar-group {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  border: 1px solid #808080;
+  padding: 2px 4px;
+  background: #c0c0c0;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: bold;
+  margin-right: 2px;
+}
+
+/* ==================== 緊湊表格 ==================== */
+.table-container {
+  max-height: 400px;
+  overflow: auto;
+  border: 1px solid #808080;
+  background: #fff;
+  margin-top: 4px;
+}
+
+.compact-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  table-layout: fixed;
+}
+
+.compact-table thead {
+  position: sticky;
+  top: 0;
+  background: #000080;
+  color: #fff;
+  z-index: 10;
+}
+
+.compact-table th {
+  border: 1px solid #fff;
+  padding: 2px 4px;
+  font-size: 11px;
+  font-weight: bold;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.compact-table td {
+  border: 1px solid #d0d0d0;
+  padding: 2px 4px;
+  font-size: 11px;
+  vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.compact-table tbody tr:nth-child(even) {
+  background: #f4f4f4;
+}
+
+.compact-table tbody tr:hover {
+  background: #e8f4ff;
+}
+
+/* 欄位寬度 - 極窄版 */
+.col-check  { width: 30px; min-width: 30px; text-align: center; }
+.col-num    { width: 40px; min-width: 40px; text-align: center; }
+.col-year   { width: 45px; min-width: 45px; }
+.col-school { width: 55px; min-width: 55px; }
+.col-chapter{ width: 100px; min-width: 80px; }
+.col-diff   { width: 60px; min-width: 60px; text-align: center; }
+.col-image  { width: 100px; min-width: 100px; }
+.col-text   { width: 250px; min-width: 150px; max-width: 400px; }
+.col-count  { width: 40px; min-width: 40px; text-align: center; }
+.col-date   { width: 70px; min-width: 70px; }
+.col-skip   { width: 40px; min-width: 40px; text-align: center; }
+
+/* 圖片縮圖 */
+.thumbnail {
+  max-width: 90px;
+  max-height: 50px;
+  cursor: pointer;
+  border: 1px solid #808080;
+  display: block;
+}
+
+.thumbnail:hover {
+  opacity: 0.8;
+  border-color: #000080;
+}
+
+/* 題目文字 */
+.question-text {
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* 隱藏欄位 */
+.col-image.hidden,
+.col-text.hidden {
+  display: none !important;
+}
+
+/* ==================== 顯示選項 ==================== */
+.display-options {
+  display: flex;
+  gap: 12px;
+  padding: 4px;
+  background: #e0e0e0;
+  border: 1px solid #808080;
+}
+
+.display-options label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+}
+
+/* ==================== 頁面切換 ==================== */
+.page {
+  display: none;
+}
+
+.page.active {
+  display: block;
+}
+
+.section-title {
+  font-weight: bold;
+  font-size: 14px;
+  margin: 6px 0 4px;
+  padding-bottom: 2px;
+  border-bottom: 1px solid #808080;
+}
+
+/* ==================== 欄位行 ==================== */
+.field-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+/* ==================== 預測難度頁面 ==================== */
+.predict-progress {
+  text-align: center;
+  font-size: 14px;
+  font-weight: bold;
+  padding: 8px;
+  background: #e0e0e0;
+  border: 1px solid #808080;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+
+.predict-single-view {
+  border: 2px inset #808080;
+  background: #fff;
+  padding: 12px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.predict-info-bar {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px;
+  background: #e0e0e0;
+  border: 1px solid #808080;
+  margin-bottom: 12px;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.predict-image-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex: 1;
+  margin-bottom: 16px;
+  border: 1px solid #d0d0d0;
+  background: #f8f8f8;
+  min-height: 0;
+}
+
+.predict-image-container img {
+  max-width: 90%;
+  max-height: 100%;
+  cursor: pointer;
+  border: 2px inset #808080;
+}
+
+.predict-rating-area {
+  text-align: center;
+  padding: 16px;
+  background: #e0e0e0;
+  border: 1px solid #808080;
+  flex-shrink: 0;
+}
+
+.predict-instruction {
+  font-size: 14px;
+  font-weight: bold;
+  margin-bottom: 12px;
+}
+
+.predict-stars {
+  justify-content: center;
+  gap: 8px;
+}
+
+.predict-stars .star {
+  width: 32px;
+  height: 32px;
+  font-size: 24px;
+  line-height: 32px;
+}
+
+/* ==================== 練習頁面 - 固定版面 ==================== */
+.practice-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px;
+  background: #e0e0e0;
+  border: 1px solid #808080;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.practice-layout {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+}
+
+.practice-left {
+  flex: 2;
+  border: 2px inset #808080;
+  background: #c0c0c0;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.practice-right {
+  flex: 1;
+  border: 2px inset #808080;
+  background: #c0c0c0;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.image-frame {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #fff;
+  border: 1px solid #808080;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.image-frame img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  cursor: pointer;
+}
+
+.answer-placeholder {
+  color: #808080;
+  font-size: 14px;
+  text-align: center;
+}
+
+#answer-container {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px;
+}
+
+/* ==================== 雙計時器 ==================== */
+.timer-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.timer-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.timer-display {
+  font-family: "Courier New", monospace;
+  font-size: 16px;
+  font-weight: bold;
+  background: #ffff80;
+  color: #000;
+  padding: 3px 10px;
+  border: 2px inset #808080;
+  min-width: 70px;
+  text-align: center;
+}
+
+.stars {
+  display: inline-flex;
+  gap: 2px;
+  cursor: pointer;
+}
+
+.star {
+  width: 16px;
+  height: 16px;
+  border: 1px solid #000;
+  background: #e0e0e0;
+  text-align: center;
+  font-size: 11px;
+  line-height: 16px;
+  user-select: none;
+  cursor: pointer;
+}
+
+.star:hover {
+  background: #ffffcc;
+}
+
+.star.active {
+  background: #ffff00;
+  color: #000;
+}
+
+/* ==================== 練習頁面 ==================== */
+.practice-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px;
+  background: #e0e0e0;
+  border: 1px solid #808080;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.practice-info {
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.highlight {
+  background: #ffff80;
+  padding: 4px 8px;
+  border: 1px solid #808080;
+}
+
+.timer-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.timer-display {
+  font-family: "Courier New", monospace;
+  font-size: 18px;
+  font-weight: bold;
+  background: #ffff80;
+  color: #000;
+  padding: 4px 12px;
+  border: 2px inset #808080;
+  min-width: 80px;
+  text-align: center;
+}
+
+/* ==================== Panel ==================== */
+.panel {
+  border: 2px inset #808080;
+  background: #c0c0c0;
+  padding: 6px;
+}
+.heatmap {
+  display: grid;
+  grid-template-columns: repeat(7, 18px);
+  gap: 2px;
+  padding: 4px;
+}
+
+.heat-cell {
+  width: 16px;
+  height: 16px;
+  border: 1px solid #808080;
+  background: #e0e0e0;
+  cursor: pointer;
+  position: relative;
+}
+
+.heat-cell:hover::after {
+  content: attr(title);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #ffffcc;
+  border: 1px solid #000;
+  padding: 2px 4px;
+  font-size: 10px;
+  white-space: nowrap;
+  z-index: 100;
+}
+
+.heat-0 { background: #e0e0e0; }
+.heat-1 { background: #c0ffc0; }
+.heat-2 { background: #80ff80; }
+.heat-3 { background: #40ff40; }
+.heat-4 { background: #00c000; }
+
+.heat-legend {
+  font-size: 10px;
+  margin-top: 4px;
+  color: #404040;
+}
+
+/* ==================== 進度條 ==================== */
+.progress-container {
+  margin: 12px 0;
+}
+
+.progress-bar {
+  height: 20px;
+  background: #fff;
+  border: 2px inset #808080;
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #000080 0%, #1084d0 100%);
+  transition: width 0.3s;
+}
+
+.progress-text {
+  text-align: center;
+  margin-top: 4px;
+  font-size: 11px;
+}
+
+/* ==================== Panel ==================== */
+.panel {
+  border: 2px inset #808080;
+  background: #c0c0c0;
+  padding: 6px;
+}
+
+/* ==================== Flex ==================== */
+.flex-row {
+  display: flex;
+  gap: 8px;
+}
+
+.flex-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.flex-1 { flex: 1; }
+.flex-2 { flex: 2; }
+
+/* ==================== Modal (對話框) ==================== */
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal.active {
+  display: flex;
+}
+
+.modal-content {
+  background: #c0c0c0;
+  border: 2px outset #fff;
+  box-shadow: 2px 2px 0 #000;
+  max-width: 90%;
+  max-height: 90%;
+  overflow: auto;
+}
+
+.modal-small {
+  width: 400px;
+  max-width: 90%;
+}
+
+.modal-header {
+  background: linear-gradient(90deg, #000080 0%, #1084d0 100%);
+  color: #fff;
+  padding: 3px 6px;
+  font-weight: bold;
+  font-size: 13px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-close {
+  cursor: pointer;
+  font-size: 14px;
+  width: 16px;
+  text-align: center;
+}
+
+.modal-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.modal-body {
+  padding: 12px;
+}
+
+.modal-body img {
+  max-width: 100%;
+  max-height: 80vh;
+  border: 2px inset #808080;
+}
+
+.modal-footer {
+  padding: 8px 12px;
+  text-align: center;
+  border-top: 1px solid #808080;
+}
+
+/* ==================== Summary ==================== */
+.summary-panel {
+  background: #fff;
+  border: 2px inset #808080;
+  padding: 12px;
+  font-size: 12px;
+}
+
+.summary-panel table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+}
+
+.summary-panel th,
+.summary-panel td {
+  border: 1px solid #808080;
+  padding: 4px 6px;
+  font-size: 11px;
+  text-align: left;
+}
+
+.summary-panel th {
+  background: #000080;
+  color: #fff;
+  font-weight: bold;
+}
+
+/* ==================== 工具類別 ==================== */
+.small {
+  font-size: 11px;
+}
+
+.mt-4 { margin-top: 4px; }
+.mt-8 { margin-top: 8px; }
+.mb-4 { margin-bottom: 4px; }
+.mb-8 { margin-bottom: 8px; }
+.ml-4 { margin-left: 4px; }
+.ml-8 { margin-left: 8px; }
+
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+
+code {
+  font-family: "Courier New", monospace;
+  background: #e0e0e0;
+  padding: 1px 3px;
+  border: 1px solid #808080;
+}
+
+/* ==================== 響應式 ==================== */
+@media (max-width: 1200px) {
+  .win98-window {
+    max-width: 100%;
+  }
+  
+  .table-container {
+    max-height: 300px;
+  }
+  
+  .practice-layout {
+    flex-direction: column;
+  }
+  
+  .practice-left,
+  .practice-right {
+    flex: 1;
+    min-height: 300px;
+  }
+}
+
+@media (max-width: 768px) {
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .toolbar-group {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .timer-group {
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .predict-stars .star {
+    width: 28px;
+    height: 28px;
+    font-size: 20px;
+    line-height: 28px;
+  }
+}
+
+/* ==================== 列印 ==================== */
+@media print {
+  body {
+    background: #fff;
+  }
+  
+  .win98-titlebar,
+  .win98-menubar,
+  .win98-statusbar,
+  .toolbar,
+  .display-options,
+  button {
+    display: none !important;
+  }
+}

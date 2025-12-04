@@ -1,69 +1,126 @@
 // ============================================
-// 刷題機 V1 - SPA 版本
+// 刷題機 V1 - Windows 98 風格
 // app.js - 主程式邏輯
 // ============================================
 
 // ==================== 全域變數 ====================
 
 // 資料
-let allQuestions = [];          // 所有題目
-let filteredQuestions = [];     // 篩選後的題目
-let selectedQuestions = [];     // 選中的題目
-let practiceLog = [];           // 練習紀錄
-let predictLog = [];            // 預測紀錄
-let hobbitLog = [];             // 每日練習紀錄
+let allQuestions = [];
+let filteredQuestions = [];
+let selectedQuestions = [];
+let practiceQuestions = [];
+let currentIndex = 0;
+
+// 紀錄
+let practiceLog = [];
+let predictLog = [];
+let hobbitLog = [];
 
 // 練習狀態
-let isPracticing = false;       // 是否正在練習
-let currentQuestionIndex = 0;   // 當前題目索引
-let practiceQuestions = [];     // 本次練習的題目
-let practiceResults = [];       // 本次練習的結果
-let sessionStartTime = null;    // 本次練習開始時間
-let questionStartTime = null;   // 當前題目開始時間
-let timerInterval = null;       // 計時器
-let isPaused = false;           // 是否暫停
-let pausedTime = 0;             // 暫停累計時間
+let sessionStartTime = null;
+let sessionTotalSeconds = 0;  // 總時間（秒）
+let questionTimes = {};  // 每題的累積時間 {qid: seconds}
+let currentQuestionStartTime = null;
+let timerInterval = null;
+let isPaused = false;
+let currentResult = null;
+let currentDifficulty = 0;
+let currentNote = '';
+let predictedDifficulties = {};  // 儲存預測難度
 
-// UI 狀態
-let showingAnswer = false;      // 是否顯示解答
+// 未完成會話
+let unfinishedSession = null;
 
 // ==================== 初始化 ====================
 
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('刷題機 V1 啟動...');
+  console.log('刷題機 V2.0 啟動...');
   
-  // 檢查 localStorage 是否有資料
+  // 載入主題
+  loadTheme();
+  
+  // 載入 localStorage 資料
   loadFromLocalStorage();
   
-  // 如果有題庫，顯示列表
+  // 檢查是否有未完成的會話
+  checkUnfinishedSession();
+  
+  // 綁定事件
+  bindEvents();
+  
+  // 如果有題庫，直接進入列表
   if (allQuestions.length > 0) {
-    initMainPage();
-  } else {
-    // 沒有題庫，顯示載入對話框
-    setTimeout(() => {
-      showDialog('歡迎', '請先載入題庫檔案才能開始使用！', () => {
-        showLoadModal();
-      });
-    }, 500);
+    showPage('list');
+    initListPage();
   }
-  
-  // 綁定鍵盤快捷鍵
-  document.addEventListener('keydown', handleKeyboard);
-  
-  // 綁定載入模式切換
-  document.querySelectorAll('input[name="load-mode"]').forEach(radio => {
-    radio.addEventListener('change', (e) => {
-      const localFileRow = document.getElementById('local-file-row');
-      localFileRow.style.display = e.target.value === 'local' ? 'block' : 'none';
-    });
-  });
-  
-  // 啟動時鐘
-  updateStatusClock();
-  setInterval(updateStatusClock, 1000);
   
   console.log('初始化完成');
 });
+
+// ==================== 事件綁定 ====================
+
+function bindEvents() {
+  // 載入模式切換
+  document.querySelectorAll('input[name="load-mode"]').forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      const localFileRow = document.getElementById('local-file-row');
+      localFileRow.style.display = e.target.value === 'local' ? 'flex' : 'none';
+    });
+  });
+  
+  // 載入題庫
+  document.getElementById('btn-load-csv').addEventListener('click', loadQuestionBank);
+  
+  // 篩選
+  document.getElementById('btn-apply-filter').addEventListener('click', applyFilters);
+  document.getElementById('btn-reset-filter').addEventListener('click', resetFilters);
+  
+  // 全選
+  document.getElementById('chk-all').addEventListener('change', toggleSelectAll);
+  
+  // 隨機模式切換
+  document.getElementById('random-mode').addEventListener('change', updateRandomOptions);
+  
+  // 隨機3題
+  document.getElementById('btn-random-3').addEventListener('click', startRandom3);
+  
+  // 開始練習選中題目
+  document.getElementById('btn-start-selected').addEventListener('click', startSelectedPractice);
+  
+  // 顯示/隱藏欄位
+  document.getElementById('show-image').addEventListener('change', toggleImageColumn);
+  document.getElementById('show-text').addEventListener('change', toggleTextColumn);
+  
+  // 匯出紀錄
+  document.getElementById('btn-export-logs').addEventListener('click', exportLogs);
+  
+  // 預測頁面
+  document.getElementById('btn-back-to-list').addEventListener('click', () => showPage('list'));
+  document.getElementById('btn-start-practice').addEventListener('click', startPracticeFromPredict);
+  
+  // 練習頁面
+  document.getElementById('btn-timer-toggle').addEventListener('click', toggleTimer);
+  document.getElementById('btn-timer-reset').addEventListener('click', resetTimer);
+  document.getElementById('btn-toggle-answer').addEventListener('click', toggleAnswer);
+  document.getElementById('btn-correct').addEventListener('click', () => recordResult('Correct'));
+  document.getElementById('btn-wrong').addEventListener('click', () => recordResult('Incorrect'));
+  document.getElementById('btn-skip').addEventListener('click', () => recordResult('Skipped'));
+  document.getElementById('btn-prev').addEventListener('click', prevQuestion);
+  document.getElementById('btn-next').addEventListener('click', nextQuestion);
+  document.getElementById('btn-save-note').addEventListener('click', saveCurrentNote);
+  document.getElementById('btn-save-later').addEventListener('click', saveForLater);
+  document.getElementById('btn-end-session').addEventListener('click', endSession);
+  
+  // Summary
+  document.getElementById('btn-summary-back').addEventListener('click', () => {
+    showPage('list');
+    initListPage();
+  });
+  
+  // 鍵盤快捷鍵
+  document.addEventListener('keydown', handleKeyboard);
+}
 
 // ==================== LocalStorage 管理 ====================
 
@@ -73,42 +130,37 @@ function saveToLocalStorage() {
     localStorage.setItem('practiceLog', JSON.stringify(practiceLog));
     localStorage.setItem('predictLog', JSON.stringify(predictLog));
     localStorage.setItem('hobbitLog', JSON.stringify(hobbitLog));
-    console.log('資料已儲存到 localStorage');
+    localStorage.setItem('unfinishedSession', JSON.stringify(unfinishedSession));
+    console.log('資料已儲存');
   } catch (e) {
     console.error('儲存失敗:', e);
-    showDialog('錯誤', '資料儲存失敗，可能是儲存空間不足。');
+    showMessage('錯誤', '資料儲存失敗，可能是儲存空間不足。');
   }
 }
 
 function loadFromLocalStorage() {
   try {
-    const questions = localStorage.getItem('questions');
-    const practice = localStorage.getItem('practiceLog');
-    const predict = localStorage.getItem('predictLog');
-    const hobbit = localStorage.getItem('hobbitLog');
+    const q = localStorage.getItem('questions');
+    const p = localStorage.getItem('practiceLog');
+    const pr = localStorage.getItem('predictLog');
+    const h = localStorage.getItem('hobbitLog');
+    const u = localStorage.getItem('unfinishedSession');
     
-    if (questions) allQuestions = JSON.parse(questions);
-    if (practice) practiceLog = JSON.parse(practice);
-    if (predict) predictLog = JSON.parse(predict);
-    if (hobbit) hobbitLog = JSON.parse(hobbit);
+    if (q) allQuestions = JSON.parse(q);
+    if (p) practiceLog = JSON.parse(p);
+    if (pr) predictLog = JSON.parse(pr);
+    if (h) hobbitLog = JSON.parse(h);
+    if (u) unfinishedSession = JSON.parse(u);
     
-    console.log(`從 localStorage 載入: ${allQuestions.length} 題`);
+    console.log(`載入 ${allQuestions.length} 題`);
   } catch (e) {
     console.error('載入失敗:', e);
   }
 }
 
-// ==================== CSV 載入與解析 ====================
+// ==================== 載入題庫 ====================
 
-function showLoadModal() {
-  document.getElementById('load-modal').style.display = 'flex';
-}
-
-function closeLoadModal() {
-  document.getElementById('load-modal').style.display = 'none';
-}
-
-async function executeLoad() {
+async function loadQuestionBank() {
   const mode = document.querySelector('input[name="load-mode"]:checked').value;
   const progressContainer = document.getElementById('load-progress');
   const progressFill = document.getElementById('load-progress-fill');
@@ -121,19 +173,16 @@ async function executeLoad() {
     let csvText;
     
     if (mode === 'online') {
-      // 線上載入
       progressText.textContent = '正在下載題庫...';
       progressFill.style.width = '25%';
       
       const response = await fetch('./data.csv');
       if (!response.ok) throw new Error('無法載入 data.csv');
       csvText = await response.text();
-      
     } else {
-      // 本地檔案
-      const fileInput = document.getElementById('csv-file-input');
+      const fileInput = document.getElementById('file-input');
       if (!fileInput.files.length) {
-        showDialog('錯誤', '請選擇 CSV 檔案');
+        showMessage('錯誤', '請選擇 CSV 檔案');
         progressContainer.style.display = 'none';
         return;
       }
@@ -141,36 +190,32 @@ async function executeLoad() {
       progressText.textContent = '正在讀取檔案...';
       progressFill.style.width = '25%';
       
-      const file = fileInput.files[0];
-      csvText = await file.text();
+      csvText = await fileInput.files[0].text();
     }
     
-    // 解析 CSV
     progressText.textContent = '正在解析題庫...';
     progressFill.style.width = '50%';
     
     allQuestions = parseCSV(csvText);
     
-    // 儲存到 localStorage
     progressText.textContent = '正在儲存資料...';
     progressFill.style.width = '75%';
     
     saveToLocalStorage();
     
-    // 完成
     progressText.textContent = '載入完成！';
     progressFill.style.width = '100%';
     
     setTimeout(() => {
-      closeLoadModal();
-      initMainPage();
-      showDialog('成功', `成功載入 ${allQuestions.length} 題！`);
+      showPage('list');
+      initListPage();
+      showMessage('成功', `成功載入 ${allQuestions.length} 題！`);
     }, 500);
     
   } catch (error) {
     console.error('載入失敗:', error);
     progressContainer.style.display = 'none';
-    showDialog('錯誤', `載入失敗: ${error.message}`);
+    showMessage('錯誤', `載入失敗: ${error.message}`);
   }
 }
 
@@ -178,11 +223,9 @@ function parseCSV(csvText) {
   const lines = csvText.split('\n');
   if (lines.length < 2) return [];
   
-  // 解析標題行
   const headers = parseCSVLine(lines[0]);
   const questions = [];
   
-  // 解析資料行
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
@@ -195,8 +238,7 @@ function parseCSV(csvText) {
       question[header.trim()] = values[index] ? values[index].trim() : '';
     });
     
-    // 確保有必要的欄位
-    if (question.ExamID) {
+    if (question.ExamID || question.Q_ID) {
       questions.push(question);
     }
   }
@@ -226,58 +268,46 @@ function parseCSVLine(line) {
   return result;
 }
 
-// ==================== 主頁面初始化 ====================
 
-function initMainPage() {
-  // 顯示主頁
-  showPage('main');
-  
+// ==================== 列表頁面初始化 ====================
+
+function initListPage() {
   // 初始化篩選器
   initFilters();
   
-  // 載入熱圖
-  loadHobbitLog();
+  // 載入 Hobbit Log
+  renderHobbitLog();
   
   // 應用篩選
   applyFilters();
   
   // 更新統計
-  updateMainPageStats();
+  updateStatistics();
 }
 
 function initFilters() {
-  // 提取唯一值
   const years = [...new Set(allQuestions.map(q => q.Year).filter(Boolean))].sort();
   const schools = [...new Set(allQuestions.map(q => q.School).filter(Boolean))].sort();
   const chapters = [...new Set(allQuestions.map(q => q.Chapter).filter(Boolean))].sort();
   
-  // 填充篩選器
   populateSelect('filter-year', years);
   populateSelect('filter-school', schools);
   populateSelect('filter-chapter', chapters);
+  populateSelect('random-chapter', chapters);
 }
 
 function populateSelect(id, options) {
   const select = document.getElementById(id);
-  // 保留第一個"全部"選項
-  while (select.options.length > 1) {
-    select.remove(1);
-  }
+  const firstOption = select.querySelector('option');
+  select.innerHTML = '';
+  if (firstOption) select.appendChild(firstOption);
   
-  options.forEach(option => {
-    const opt = document.createElement('option');
-    opt.value = option;
-    opt.textContent = option;
-    select.appendChild(opt);
+  options.forEach(opt => {
+    const option = document.createElement('option');
+    option.value = opt;
+    option.textContent = opt;
+    select.appendChild(option);
   });
-}
-
-function updateMainPageStats() {
-  const totalQuestions = allQuestions.length;
-  const practicedCount = getPracticedQuestions().length;
-  
-  document.getElementById('total-questions').textContent = totalQuestions;
-  document.getElementById('practiced-count').textContent = practicedCount;
 }
 
 // ==================== 篩選功能 ====================
@@ -286,39 +316,21 @@ function applyFilters() {
   const year = document.getElementById('filter-year').value;
   const school = document.getElementById('filter-school').value;
   const chapter = document.getElementById('filter-chapter').value;
-  const difficulty = document.getElementById('filter-difficulty').value;
   const status = document.getElementById('filter-status').value;
   const search = document.getElementById('filter-search').value.toLowerCase();
   
   filteredQuestions = allQuestions.filter(q => {
-    // 年份
     if (year && q.Year !== year) return false;
-    
-    // 學校
     if (school && q.School !== school) return false;
-    
-    // 章節
     if (chapter && q.Chapter !== chapter) return false;
     
-    // 難度
-    if (difficulty && q.Difficulty !== difficulty) return false;
+    if (status === 'practiced' && !isPracticed(getQID(q))) return false;
+    if (status === 'unpracticed' && isPracticed(getQID(q))) return false;
     
-    // 狀態
-    if (status === 'practiced' && !isPracticed(q.ExamID)) return false;
-    if (status === 'unpracticed' && isPracticed(q.ExamID)) return false;
-    
-    // 搜尋 (包含題目文字)
+    // 搜尋 Extracted Text
     if (search) {
-      const searchableText = [
-        q.ExamID,
-        q['Display Name'],
-        q['題目文字'],
-        q.Year,
-        q.School,
-        q.Chapter
-      ].join(' ').toLowerCase();
-      
-      if (!searchableText.includes(search)) return false;
+      const extractedText = (q['Extracted Text'] || '').toLowerCase();
+      if (!extractedText.includes(search)) return false;
     }
     
     return true;
@@ -331,7 +343,6 @@ function resetFilters() {
   document.getElementById('filter-year').value = '';
   document.getElementById('filter-school').value = '';
   document.getElementById('filter-chapter').value = '';
-  document.getElementById('filter-difficulty').value = '';
   document.getElementById('filter-status').value = '';
   document.getElementById('filter-search').value = '';
   
@@ -339,92 +350,817 @@ function resetFilters() {
 }
 
 function renderQuestionList() {
-  const tbody = document.getElementById('question-list');
+  const tbody = document.getElementById('questions-tbody');
   tbody.innerHTML = '';
   
-  document.getElementById('question-count').textContent = filteredQuestions.length;
-  
-  if (filteredQuestions.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; padding: 20px;">沒有符合條件的題目</td></tr>';
-    return;
-  }
-  
-  // 檢查顯示選項
-  const showImage = document.getElementById('show-image')?.checked ?? true;
-  const showText = document.getElementById('show-text')?.checked ?? true;
+  const showImage = document.getElementById('show-image').checked;
+  const showText = document.getElementById('show-text').checked;
   
   filteredQuestions.forEach((q, index) => {
     const row = document.createElement('tr');
+    const qid = getQID(q);
     
-    const practiceCount = getPracticeCount(q.ExamID);
-    const lastPractice = getLastPracticeDate(q.ExamID);
-    const skipCount = getSkipCount(q.ExamID);
+    const practiceCount = getPracticeCount(qid);
+    const lastDate = getLastDate(qid);
+    const skipCount = getSkipCount(qid);
     
-    // 準備圖片
-    const imageHtml = showImage ? `
-      <td class="col-image">
-        ${q['Problem Image'] ? 
-          `<img src="${q['Problem Image']}" class="question-thumbnail" alt="題目圖" onclick="showImagePreview('${q['Problem Image']}')">` : 
-          '-'}
-      </td>
-    ` : '';
+    // 從使用者資料讀取難度（最近一次的實際難度）
+    const userDifficulty = getUserDifficulty(qid);
     
-    // 準備文字 (從 Display Name 或其他欄位)
-    const questionText = q['Display Name'] || q['題目文字'] || q.ExamID || '';
-    const textHtml = showText ? `
-      <td class="col-text">
-        <div class="question-text" title="${questionText}">
-          ${questionText}
-        </div>
-      </td>
-    ` : '';
-    
-    row.innerHTML = `
-      <td class="col-checkbox"><input type="checkbox" class="question-checkbox" data-exam-id="${q.ExamID}"></td>
-      <td class="col-number">${index + 1}</td>
+    let html = `
+      <td class="col-check"><input type="checkbox" class="question-checkbox" data-qid="${qid}"></td>
+      <td class="col-num">${index + 1}</td>
       <td class="col-year">${q.Year || '-'}</td>
-      <td class="col-school">${q.School || '-'}</td>
-      <td class="col-chapter">${q.Chapter || '-'}</td>
-      <td class="col-difficulty">${renderStars(q.Difficulty || 0)}</td>
-      <td class="col-practice">${practiceCount}</td>
-      <td class="col-date">${lastPractice}</td>
-      <td class="col-skip">${skipCount}</td>
-      ${imageHtml}
-      ${textHtml}
+      <td class="col-school" title="${q.School || '-'}">${(q.School || '-').substring(0, 4)}</td>
+      <td class="col-chapter" title="${q.Chapter || '-'}">${q.Chapter || '-'}</td>
+      <td class="col-diff">${userDifficulty > 0 ? renderStars(userDifficulty) : '-'}</td>
     `;
     
+    if (showImage) {
+      const imageSrc = q['Problem Image'] || q['題目圖片'] || '';
+      html += `<td class="col-image">
+        ${imageSrc ? `<img src="${imageSrc}" class="thumbnail" onclick="enlargeImage('${imageSrc}')" alt="題目">` : '-'}
+      </td>`;
+    }
+    
+    if (showText) {
+      const text = q['Extracted Text'] || '-';
+      html += `<td class="col-text"><div class="question-text" title="${text}">${text}</div></td>`;
+    }
+    
+    html += `
+      <td class="col-count">${practiceCount}</td>
+      <td class="col-date">${lastDate}</td>
+      <td class="col-skip">${skipCount}</td>
+    `;
+    
+    row.innerHTML = html;
     tbody.appendChild(row);
   });
   
-  // 更新欄位顯示狀態
   updateColumnVisibility();
+  updateStatistics();
 }
 
-// ==================== 輔助函數 ====================
-
-function isPracticed(examId) {
-  return practiceLog.some(log => log.Q_ID === examId);
+function updateColumnVisibility() {
+  const showImage = document.getElementById('show-image').checked;
+  const showText = document.getElementById('show-text').checked;
+  
+  const table = document.getElementById('questions-table');
+  const imageHeaders = table.querySelectorAll('th.col-image');
+  const textHeaders = table.querySelectorAll('th.col-text');
+  
+  imageHeaders.forEach(th => th.classList.toggle('hidden', !showImage));
+  textHeaders.forEach(th => th.classList.toggle('hidden', !showText));
 }
 
-function getPracticeCount(examId) {
-  return practiceLog.filter(log => log.Q_ID === examId).length;
+function toggleImageColumn() {
+  renderQuestionList();
 }
 
-function getLastPracticeDate(examId) {
-  const logs = practiceLog.filter(log => log.Q_ID === examId);
+function toggleTextColumn() {
+  renderQuestionList();
+}
+
+function toggleSelectAll() {
+  const checked = document.getElementById('chk-all').checked;
+  document.querySelectorAll('.question-checkbox').forEach(cb => {
+    cb.checked = checked;
+  });
+  updateStatistics();
+}
+
+function updateStatistics() {
+  document.getElementById('total-count').textContent = allQuestions.length;
+  document.getElementById('filtered-count').textContent = filteredQuestions.length;
+  
+  const selectedCount = document.querySelectorAll('.question-checkbox:checked').length;
+  document.getElementById('selected-count').textContent = selectedCount;
+}
+
+// ==================== 隨機模式 ====================
+
+function updateRandomOptions() {
+  const mode = document.getElementById('random-mode').value;
+  
+  document.getElementById('random-chapter-group').style.display = 
+    mode === 'chapter' ? 'flex' : 'none';
+  document.getElementById('random-difficulty-group').style.display = 
+    mode === 'difficulty' ? 'flex' : 'none';
+}
+
+function startRandom3() {
+  const mode = document.getElementById('random-mode').value;
+  let candidates = [];
+  
+  if (mode === 'all') {
+    // 總題庫隨機
+    candidates = [...allQuestions];
+  } else if (mode === 'chapter') {
+    // 指定章節隨機
+    const chapter = document.getElementById('random-chapter').value;
+    if (!chapter) {
+      showMessage('提示', '請選擇章節！');
+      return;
+    }
+    candidates = allQuestions.filter(q => q.Chapter === chapter);
+  } else if (mode === 'difficulty') {
+    // 指定難度隨機
+    const diff = document.getElementById('random-difficulty').value;
+    candidates = allQuestions.filter(q => q.Difficulty === diff);
+  } else if (mode === 'unpracticed') {
+    // 未練習隨機
+    candidates = allQuestions.filter(q => !isPracticed(getQID(q)));
+  }
+  
+  if (candidates.length === 0) {
+    showMessage('提示', '沒有符合條件的題目！');
+    return;
+  }
+  
+  // 隨機選3題
+  const selected = [];
+  const shuffled = [...candidates].sort(() => Math.random() - 0.5);
+  for (let i = 0; i < Math.min(3, shuffled.length); i++) {
+    selected.push(shuffled[i]);
+  }
+  
+  startPracticeWithQuestions(selected);
+}
+
+function startSelectedPractice() {
+  const checkboxes = document.querySelectorAll('.question-checkbox:checked');
+  if (checkboxes.length === 0) {
+    showMessage('提示', '請先勾選要練習的題目！');
+    return;
+  }
+  
+  const selected = [];
+  checkboxes.forEach(cb => {
+    const qid = cb.dataset.qid;
+    const q = allQuestions.find(q => getQID(q) === qid);
+    if (q) selected.push(q);
+  });
+  
+  startPracticeWithQuestions(selected);
+}
+
+function startPracticeWithQuestions(questions) {
+  practiceQuestions = questions;
+  
+  // 重置預測難度
+  predictedDifficulties = {};
+  
+  // 進入預測頁面
+  showPage('predict');
+  renderPredictPage();
+}
+
+
+// ==================== 預測頁面 ====================
+
+let predictCurrentIndex = 0;
+
+function renderPredictPage() {
+  predictCurrentIndex = 0;
+  displayPredictQuestion(0);
+}
+
+function displayPredictQuestion(index) {
+  if (index < 0 || index >= practiceQuestions.length) return;
+  
+  predictCurrentIndex = index;
+  const q = practiceQuestions[index];
+  const qid = getQID(q);
+  
+  // 更新進度
+  document.getElementById('predict-current').textContent = index + 1;
+  document.getElementById('predict-total').textContent = practiceQuestions.length;
+  
+  // 更新資訊
+  document.getElementById('predict-qid').textContent = qid;
+  document.getElementById('predict-meta').textContent = 
+    `${q.Year || '-'} ${q.School || '-'} [${q.Chapter || '-'}]`;
+  
+  // 顯示圖片
+  const imageSrc = q['Problem Image'] || q['題目圖片'] || '';
+  document.getElementById('predict-image').src = imageSrc;
+  
+  // 顯示已評分的星星
+  const predicted = predictedDifficulties[qid] || 0;
+  updatePredictStars(predicted);
+}
+
+function predictSetDiff(value) {
+  const q = practiceQuestions[predictCurrentIndex];
+  const qid = getQID(q);
+  
+  predictedDifficulties[qid] = value;
+  updatePredictStars(value);
+  
+  // 自動跳下一題
+  setTimeout(() => {
+    if (predictCurrentIndex < practiceQuestions.length - 1) {
+      displayPredictQuestion(predictCurrentIndex + 1);
+    }
+  }, 300);
+}
+
+function updatePredictStars(value) {
+  const stars = document.querySelectorAll('#predict-stars .star');
+  stars.forEach((star, index) => {
+    if (index < value) {
+      star.textContent = '★';
+      star.classList.add('active');
+    } else {
+      star.textContent = '☆';
+      star.classList.remove('active');
+    }
+  });
+}
+
+function predictPrevQuestion() {
+  if (predictCurrentIndex > 0) {
+    displayPredictQuestion(predictCurrentIndex - 1);
+  }
+}
+
+function predictNextQuestion() {
+  if (predictCurrentIndex < practiceQuestions.length - 1) {
+    displayPredictQuestion(predictCurrentIndex + 1);
+  }
+}
+
+function startPracticeFromPredict() {
+  // 檢查是否所有題目都預測了
+  const unpredicted = practiceQuestions.filter(q => !predictedDifficulties[getQID(q)]);
+  
+  if (unpredicted.length > 0) {
+    showMessage('提示', `還有 ${unpredicted.length} 題尚未預測難度！\n\n可以直接開始練習，未預測的題目不會記錄預測難度。`, () => {
+      startPracticePage();
+    });
+  } else {
+    startPracticePage();
+  }
+}
+
+// ==================== 練習頁面 ====================
+
+function startPracticePage() {
+  currentIndex = 0;
+  sessionStartTime = Date.now();
+  sessionTotalSeconds = 0;
+  questionTimes = {};
+  
+  // 初始化每題的時間為0
+  practiceQuestions.forEach(q => {
+    questionTimes[getQID(q)] = 0;
+  });
+  
+  // 儲存未完成會話
+  unfinishedSession = {
+    questions: practiceQuestions.map(q => getQID(q)),
+    currentIndex: 0,
+    startTime: sessionStartTime,
+    predictions: {...predictedDifficulties},
+    questionTimes: {...questionTimes},
+    totalSeconds: 0
+  };
+  saveToLocalStorage();
+  
+  showPage('practice');
+  displayQuestion(0);
+  startTimer();
+}
+
+function displayQuestion(index) {
+  if (index < 0 || index >= practiceQuestions.length) return;
+  
+  currentIndex = index;
+  const q = practiceQuestions[index];
+  const qid = getQID(q);
+  
+  // 更新標題資訊
+  document.getElementById('current-num').textContent = index + 1;
+  document.getElementById('total-num').textContent = practiceQuestions.length;
+  document.getElementById('current-qid').textContent = qid;
+  document.getElementById('current-meta').textContent = `${q.Year || '-'} ${q.School || '-'} [${q.Chapter || '-'}]`;
+  
+  // 顯示題目圖片
+  const problemImg = document.getElementById('practice-problem-img');
+  problemImg.src = q['Problem Image'] || q['題目圖片'] || '';
+  
+  // 載入解答和詳解（但先隱藏）
+  document.getElementById('practice-answer-img').src = q['Answer Image'] || q['解答圖片'] || '';
+  document.getElementById('practice-solution-img').src = q['Solution Image'] || q['詳解圖片'] || '';
+  document.getElementById('answer-container').style.display = 'none';
+  document.getElementById('answer-placeholder').style.display = 'block';
+  document.getElementById('btn-toggle-answer').textContent = '顯示解答/詳解 (A)';
+  
+  // 顯示預測難度
+  const predicted = predictedDifficulties[qid] || 0;
+  document.getElementById('predicted-diff').textContent = predicted > 0 ? predicted : '未預測';
+  
+  // 載入筆記
+  const previousNote = getPreviousNote(qid);
+  document.getElementById('practice-notes').value = previousNote;
+  currentNote = previousNote;
+  
+  // 重設難度和結果
+  currentDifficulty = 0;
+  currentResult = null;
+  updateDifficultyStars(0);
+  
+  // 按鈕狀態
+  document.getElementById('btn-prev').disabled = index === 0;
+  document.getElementById('btn-next').disabled = false;
+  
+  // 開始這題的計時
+  currentQuestionStartTime = Date.now();
+  
+  // 更新單題計時器顯示
+  updateSingleTimerDisplay();
+}
+
+function toggleAnswer() {
+  const container = document.getElementById('answer-container');
+  const placeholder = document.getElementById('answer-placeholder');
+  const btn = document.getElementById('btn-toggle-answer');
+  
+  if (container.style.display === 'none') {
+    container.style.display = 'block';
+    placeholder.style.display = 'none';
+    btn.textContent = '隱藏解答/詳解 (A)';
+  } else {
+    container.style.display = 'none';
+    placeholder.style.display = 'block';
+    btn.textContent = '顯示解答/詳解 (A)';
+  }
+}
+
+function recordResult(result) {
+  currentResult = result;
+  
+  // 記錄這題花費的時間
+  const q = practiceQuestions[currentIndex];
+  const qid = getQID(q);
+  const thisQuestionTime = Math.floor((Date.now() - currentQuestionStartTime) / 1000);
+  questionTimes[qid] += thisQuestionTime;
+  
+  const today = new Date().toISOString().split('T')[0];
+  
+  const log = {
+    Q_ID: qid,
+    Date: today,
+    TimeSeconds: questionTimes[qid],  // 使用累積時間
+    PredictedDifficulty: predictedDifficulties[qid] || 0,
+    ActualDifficulty: currentDifficulty,
+    Note: currentNote,
+    Result: result
+  };
+  
+  practiceLog.push(log);
+  
+  // 更新 Hobbit Log（使用這次花費的時間）
+  updateHobbitLog(today, thisQuestionTime);
+  
+  // 儲存
+  saveToLocalStorage();
+  
+  // 更新狀態
+  document.getElementById('status-left').textContent = 
+    `已記錄：${result === 'Correct' ? '✓ 正確' : result === 'Incorrect' ? '✗ 錯誤' : '⊘ 跳過'}`;
+  
+  // 自動跳下一題
+  if (currentIndex < practiceQuestions.length - 1) {
+    setTimeout(() => nextQuestion(), 500);
+  }
+}
+
+function prevQuestion() {
+  if (currentIndex > 0) {
+    // 累積當前題目的時間
+    const qid = getQID(practiceQuestions[currentIndex]);
+    const elapsed = Math.floor((Date.now() - currentQuestionStartTime) / 1000);
+    questionTimes[qid] += elapsed;
+    
+    displayQuestion(currentIndex - 1);
+  }
+}
+
+function nextQuestion() {
+  if (currentIndex < practiceQuestions.length - 1) {
+    // 累積當前題目的時間
+    const qid = getQID(practiceQuestions[currentIndex]);
+    const elapsed = Math.floor((Date.now() - currentQuestionStartTime) / 1000);
+    questionTimes[qid] += elapsed;
+    
+    displayQuestion(currentIndex + 1);
+  } else {
+    showMessage('提示', '已經是最後一題了！');
+  }
+}
+
+function setDifficulty(value) {
+  currentDifficulty = value;
+  updateDifficultyStars(value);
+}
+
+function updateDifficultyStars(value) {
+  const stars = document.querySelectorAll('#difficulty-stars .star');
+  stars.forEach((star, index) => {
+    if (index < value) {
+      star.textContent = '★';
+      star.classList.add('active');
+    } else {
+      star.textContent = '☆';
+      star.classList.remove('active');
+    }
+  });
+}
+
+function saveCurrentNote() {
+  currentNote = document.getElementById('practice-notes').value;
+  
+  // 更新 practiceLog 中這題的筆記
+  const q = practiceQuestions[currentIndex];
+  const qid = getQID(q);
+  
+  const logs = practiceLog.filter(log => log.Q_ID === qid);
+  if (logs.length > 0) {
+    logs[logs.length - 1].Note = currentNote;
+    saveToLocalStorage();
+    showMessage('提示', '筆記已儲存！');
+  } else {
+    showMessage('提示', '請先作答（正確/錯誤/跳過）後，筆記才會儲存。');
+  }
+}
+
+function saveForLater() {
+  // 累積當前題目的時間
+  const qid = getQID(practiceQuestions[currentIndex]);
+  const elapsed = Math.floor((Date.now() - currentQuestionStartTime) / 1000);
+  questionTimes[qid] += elapsed;
+  
+  // 更新未完成會話
+  unfinishedSession = {
+    questions: practiceQuestions.map(q => getQID(q)),
+    currentIndex: currentIndex,
+    startTime: sessionStartTime,
+    predictions: {...predictedDifficulties},
+    questionTimes: {...questionTimes},
+    totalSeconds: sessionTotalSeconds + Math.floor((Date.now() - sessionStartTime) / 1000)
+  };
+  saveToLocalStorage();
+  
+  stopTimer();
+  showMessage('提示', '進度已儲存！下次開啟會詢問是否繼續。', () => {
+    showPage('list');
+    initListPage();
+  });
+}
+
+function endSession() {
+  stopTimer();
+  
+  // 累積當前題目的時間
+  const qid = getQID(practiceQuestions[currentIndex]);
+  const elapsed = Math.floor((Date.now() - currentQuestionStartTime) / 1000);
+  questionTimes[qid] += elapsed;
+  
+  // 清除未完成會話
+  unfinishedSession = null;
+  saveToLocalStorage();
+  
+  // 顯示 Summary
+  showPage('summary');
+  renderSummary();
+}
+
+
+// ==================== Summary 頁面 ====================
+
+function renderSummary() {
+  const container = document.getElementById('summary-content');
+  
+  const qids = practiceQuestions.map(q => getQID(q));
+  const sessionLogs = practiceLog.filter(log => qids.includes(log.Q_ID));
+  
+  const correct = sessionLogs.filter(l => l.Result === 'Correct').length;
+  const incorrect = sessionLogs.filter(l => l.Result === 'Incorrect').length;
+  const skipped = sessionLogs.filter(l => l.Result === 'Skipped').length;
+  const total = sessionLogs.length;
+  const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0;
+  
+  let html = `
+    <h3>本輪統計</h3>
+    <p>總題數：${practiceQuestions.length}</p>
+    <p>已作答：${total}</p>
+    <p>答對：${correct} | 答錯：${incorrect} | 跳過：${skipped}</p>
+    <p>正確率：${accuracy}%</p>
+    
+    <h3 class="mt-8">詳細記錄</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Q_ID</th>
+          <th>結果</th>
+          <th>時間(秒)</th>
+          <th>預測難度</th>
+          <th>實際難度</th>
+          <th>筆記</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+  
+  sessionLogs.forEach(log => {
+    const resultText = log.Result === 'Correct' ? '✓ 正確' : 
+                       log.Result === 'Incorrect' ? '✗ 錯誤' : '⊘ 跳過';
+    html += `
+      <tr>
+        <td>${log.Q_ID}</td>
+        <td>${resultText}</td>
+        <td>${log.TimeSeconds}</td>
+        <td>${log.PredictedDifficulty > 0 ? renderStars(log.PredictedDifficulty) : '-'}</td>
+        <td>${log.ActualDifficulty > 0 ? renderStars(log.ActualDifficulty) : '-'}</td>
+        <td class="small">${log.Note || '-'}</td>
+      </tr>
+    `;
+  });
+  
+  html += `</tbody></table>`;
+  container.innerHTML = html;
+}
+
+// ==================== Hobbit Log ====================
+
+function updateHobbitLog(date, seconds) {
+  let log = hobbitLog.find(l => l.Date === date);
+  
+  if (!log) {
+    log = {
+      Date: date,
+      TotalSeconds: 0,
+      QuestionCount: 0
+    };
+    hobbitLog.push(log);
+  }
+  
+  log.TotalSeconds += seconds;
+  log.QuestionCount += 1;
+  
+  saveToLocalStorage();
+}
+
+function renderHobbitLog() {
+  const container = document.getElementById('heatmap');
+  container.innerHTML = '';
+  container.className = 'heatmap-inline';
+  
+  // 生成最近90天的熱圖
+  const today = new Date();
+  const days = [];
+  
+  for (let i = 89; i >= 0; i--) {
+    const date = new Date(today);
+    date.setDate(date.getDate() - i);
+    days.push(date);
+  }
+  
+  days.forEach(date => {
+    const dateStr = date.toISOString().split('T')[0];
+    const log = hobbitLog.find(l => l.Date === dateStr);
+    const minutes = log ? Math.floor(log.TotalSeconds / 60) : 0;
+    const level = getHeatLevel(minutes);
+    
+    const cell = document.createElement('div');
+    cell.className = `heat-cell heat-${level}`;
+    cell.title = `${dateStr}: ${minutes} 分鐘, ${log ? log.QuestionCount : 0} 題`;
+    cell.onclick = () => showDayDetail(dateStr);
+    
+    container.appendChild(cell);
+  });
+  
+  // 更新本月統計
+  const thisMonth = today.getMonth();
+  const thisYear = today.getFullYear();
+  const monthLogs = hobbitLog.filter(l => {
+    const d = new Date(l.Date);
+    return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
+  });
+  
+  const monthDays = monthLogs.length;
+  const monthMinutes = monthLogs.reduce((sum, l) => sum + Math.floor(l.TotalSeconds / 60), 0);
+  const monthQuestions = monthLogs.reduce((sum, l) => sum + l.QuestionCount, 0);
+  
+  const monthStats = document.getElementById('month-stats-text');
+  if (monthStats) {
+    monthStats.textContent = `本月：${monthDays}天 / ${monthQuestions}題 / ${monthMinutes}分鐘`;
+  }
+}
+
+function getHeatLevel(minutes) {
+  if (minutes === 0) return 0;
+  if (minutes <= 10) return 1;
+  if (minutes <= 30) return 2;
+  if (minutes <= 60) return 3;
+  return 4;
+}
+
+function showDayDetail(date) {
+  const log = hobbitLog.find(l => l.Date === date);
+  if (!log) {
+    showMessage('詳情', `${date}\n尚無練習紀錄`);
+    return;
+  }
+  
+  const minutes = Math.floor(log.TotalSeconds / 60);
+  
+  // 找出當天的所有答題記錄
+  const dayLogs = practiceLog.filter(l => l.Date === date);
+  
+  let details = `${date}\n\n`;
+  details += `練習時間：${minutes} 分鐘\n`;
+  details += `完成題數：${log.QuestionCount} 題\n\n`;
+  
+  if (dayLogs.length > 0) {
+    details += `答題記錄：\n`;
+    details += `────────────────────\n`;
+    
+    dayLogs.forEach(l => {
+      const resultEmoji = l.Result === 'Correct' ? '✓' : l.Result === 'Incorrect' ? '✗' : '⊘';
+      const time = Math.floor(l.TimeSeconds / 60);
+      details += `${resultEmoji} ${l.Q_ID} (${time}分)\n`;
+    });
+  }
+  
+  showMessage('練習詳情', details);
+}
+
+// ==================== 計時器 ====================
+
+function toggleTimer() {
+  const btn = document.getElementById('btn-timer-toggle');
+  
+  if (timerInterval) {
+    stopTimer();
+    btn.textContent = '開始';
+  } else {
+    startTimer();
+    btn.textContent = '暫停';
+  }
+}
+
+function startTimer() {
+  if (timerInterval) return;
+  
+  const sessionStart = Date.now();
+  const questionStart = Date.now();
+  
+  timerInterval = setInterval(() => {
+    // 更新總時間
+    const totalElapsed = sessionTotalSeconds + Math.floor((Date.now() - sessionStart) / 1000);
+    updateTotalTimerDisplay(totalElapsed);
+    
+    // 更新單題時間
+    const qid = getQID(practiceQuestions[currentIndex]);
+    const baseTime = questionTimes[qid] || 0;
+    const currentElapsed = Math.floor((Date.now() - questionStart) / 1000);
+    updateSingleTimerDisplay(baseTime + currentElapsed);
+  }, 1000);
+}
+
+function stopTimer() {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+    
+    // 儲存當前的總時間
+    const elapsed = Math.floor((Date.now() - sessionStartTime) / 1000);
+    sessionTotalSeconds = elapsed;
+  }
+}
+
+function resetTimer() {
+  stopTimer();
+  sessionTotalSeconds = 0;
+  updateTotalTimerDisplay(0);
+  updateSingleTimerDisplay();
+  document.getElementById('btn-timer-toggle').textContent = '開始';
+}
+
+function updateTotalTimerDisplay(seconds) {
+  const minutes = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  document.getElementById('timer-total').textContent = 
+    `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
+
+function updateSingleTimerDisplay(seconds = null) {
+  if (seconds === null) {
+    const qid = getQID(practiceQuestions[currentIndex]);
+    seconds = questionTimes[qid] || 0;
+  }
+  
+  const minutes = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  document.getElementById('timer-single').textContent = 
+    `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
+
+// ==================== 未完成會話 ====================
+
+function checkUnfinishedSession() {
+  if (!unfinishedSession) return;
+  
+  // 詢問是否繼續
+  const modal = document.getElementById('continue-modal');
+  document.getElementById('continue-count').textContent = unfinishedSession.questions.length;
+  document.getElementById('continue-done').textContent = unfinishedSession.currentIndex;
+  
+  modal.style.display = 'flex';
+  
+  document.getElementById('btn-continue-yes').onclick = () => {
+    modal.style.display = 'none';
+    continuePractice();
+  };
+  
+  document.getElementById('btn-continue-no').onclick = () => {
+    modal.style.display = 'none';
+    unfinishedSession = null;
+    saveToLocalStorage();
+  };
+}
+
+function continuePractice() {
+  // 恢復練習狀態
+  practiceQuestions = unfinishedSession.questions.map(qid => 
+    allQuestions.find(q => getQID(q) === qid)
+  ).filter(Boolean);
+  
+  predictedDifficulties = {...unfinishedSession.predictions};
+  questionTimes = {...unfinishedSession.questionTimes} || {};
+  sessionStartTime = unfinishedSession.startTime;
+  sessionTotalSeconds = unfinishedSession.totalSeconds || 0;
+  
+  showPage('practice');
+  displayQuestion(unfinishedSession.currentIndex);
+  startTimer();
+}
+
+// ==================== 工具函數 ====================
+
+function showPage(pageName) {
+  document.querySelectorAll('.page').forEach(page => {
+    page.classList.remove('active');
+  });
+  
+  const page = document.getElementById(`page-${pageName}`);
+  if (page) {
+    page.classList.add('active');
+  }
+}
+
+function getQID(question) {
+  return question.Q_ID || question.ExamID || question['題目ID'] || '';
+}
+
+function isPracticed(qid) {
+  return practiceLog.some(log => log.Q_ID === qid);
+}
+
+function getPracticeCount(qid) {
+  return practiceLog.filter(log => log.Q_ID === qid).length;
+}
+
+function getLastDate(qid) {
+  const logs = practiceLog.filter(log => log.Q_ID === qid);
   if (logs.length === 0) return '-';
   
   const latest = logs.sort((a, b) => new Date(b.Date) - new Date(a.Date))[0];
-  return formatDate(latest.Date);
+  const date = new Date(latest.Date);
+  return `${date.getMonth() + 1}/${date.getDate()}`;
 }
 
-function getSkipCount(examId) {
-  return practiceLog.filter(log => log.Q_ID === examId && log.Result === 'Skipped').length;
+function getSkipCount(qid) {
+  return practiceLog.filter(log => log.Q_ID === qid && log.Result === 'Skipped').length;
 }
 
-function getPracticedQuestions() {
-  const practicedIds = new Set(practiceLog.map(log => log.Q_ID));
-  return allQuestions.filter(q => practicedIds.has(q.ExamID));
+function getUserDifficulty(qid) {
+  // 從使用者資料讀取難度（最近一次的實際難度）
+  const logs = practiceLog.filter(log => log.Q_ID === qid && log.ActualDifficulty > 0);
+  if (logs.length === 0) return 0;
+  
+  // 取最近一次的難度
+  const latest = logs.sort((a, b) => new Date(b.Date) - new Date(a.Date))[0];
+  return latest.ActualDifficulty;
+}
+
+function getPreviousNote(qid) {
+  const logs = practiceLog.filter(log => log.Q_ID === qid && log.Note);
+  if (logs.length === 0) return '';
+  return logs[logs.length - 1].Note;
 }
 
 function renderStars(difficulty) {
@@ -436,67 +1172,39 @@ function renderStars(difficulty) {
   return stars;
 }
 
-function formatDate(dateStr) {
-  if (!dateStr) return '-';
-  const date = new Date(dateStr);
-  return `${date.getMonth() + 1}/${date.getDate()}`;
-}
+// ==================== Modal 對話框 ====================
 
-function updateStatusClock() {
-  const now = new Date();
-  const timeStr = now.toLocaleTimeString('zh-TW', { hour12: false });
-  const elem = document.getElementById('status-time');
-  if (elem) elem.textContent = timeStr;
-}
-
-// ==================== 頁面切換 ====================
-
-function showPage(pageName) {
-  document.querySelectorAll('.page').forEach(page => {
-    page.classList.remove('active');
-  });
+function showMessage(title, message, callback = null) {
+  const modal = document.getElementById('message-modal');
+  document.getElementById('message-title').textContent = title;
+  document.getElementById('message-text').textContent = message;
   
-  const targetPage = document.getElementById(`page-${pageName}`);
-  if (targetPage) {
-    targetPage.classList.add('active');
-  }
-}
-
-// ==================== 通用對話框 ====================
-
-function showDialog(title, message, callback = null) {
-  const modal = document.getElementById('dialog-modal');
-  const titleElem = document.getElementById('dialog-title');
-  const messageElem = document.getElementById('dialog-message');
-  const okBtn = document.getElementById('dialog-ok-btn');
-  
-  titleElem.textContent = title;
-  messageElem.textContent = message;
   modal.style.display = 'flex';
   
-  if (callback) {
-    okBtn.onclick = () => {
-      closeDialog();
-      callback();
-    };
-  } else {
-    okBtn.onclick = closeDialog;
-  }
+  const okBtn = document.getElementById('message-ok');
+  okBtn.onclick = () => {
+    closeMessageModal();
+    if (callback) callback();
+  };
 }
 
-function closeDialog() {
-  document.getElementById('dialog-modal').style.display = 'none';
+function closeMessageModal() {
+  document.getElementById('message-modal').style.display = 'none';
 }
 
-// ==================== 載入題庫 ====================
+function enlargeImage(src) {
+  const modal = document.getElementById('image-modal');
+  document.getElementById('modal-image').src = src;
+  modal.style.display = 'flex';
+}
 
-function loadQuestionBank() {
-  showLoadModal();
+function closeImageModal() {
+  document.getElementById('image-modal').style.display = 'none';
 }
 
 // ==================== 匯出資料 ====================
 
-function exportData() {
+function exportLogs() {
   const data = {
     practiceLog: practiceLog,
     predictLog: predictLog,
@@ -510,707 +1218,143 @@ function exportData() {
   
   const a = document.createElement('a');
   a.href = url;
-  a.download = `shuatiji-data-${formatDateForFilename(new Date())}.json`;
+  a.download = `shuatiji-logs-${formatDateForFilename(new Date())}.json`;
   a.click();
   
   URL.revokeObjectURL(url);
-  
-  showDialog('成功', '資料已匯出！');
+  showMessage('成功', '紀錄已匯出！');
 }
 
 function formatDateForFilename(date) {
   return `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
 }
 
-// ==================== 練習功能 ====================
-
-function toggleSelectAll() {
-  const selectAll = document.getElementById('select-all');
-  const checkboxes = document.querySelectorAll('.question-checkbox');
-  
-  checkboxes.forEach(cb => {
-    cb.checked = selectAll.checked;
-  });
-}
-
-function getSelectedQuestions() {
-  const checkboxes = document.querySelectorAll('.question-checkbox:checked');
-  const examIds = Array.from(checkboxes).map(cb => cb.dataset.examId);
-  return filteredQuestions.filter(q => examIds.includes(q.ExamID));
-}
-
-function startPractice(mode) {
-  const selected = getSelectedQuestions();
-  const predictMode = document.getElementById('predict-mode').checked;
-  
-  if (selected.length === 0) {
-    showDialog('提示', '請先勾選要練習的題目！');
-    return;
-  }
-  
-  // 準備練習題目
-  practiceQuestions = [...selected];
-  
-  if (mode === 'random') {
-    // 隨機3題
-    shuffleArray(practiceQuestions);
-    practiceQuestions = practiceQuestions.slice(0, Math.min(3, practiceQuestions.length));
-  }
-  
-  // 初始化練習狀態
-  currentQuestionIndex = 0;
-  practiceResults = [];
-  sessionStartTime = Date.now();
-  isPracticing = true;
-  isPaused = false;
-  pausedTime = 0;
-  
-  // 如果是預測模式，先進行預測
-  if (predictMode) {
-    // TODO: 實作預測介面
-    showDialog('提示', '預測模式開發中...');
-  }
-  
-  // 進入練習頁面
-  showPage('practice');
-  displayQuestion(currentQuestionIndex);
-  startTimer();
-}
-
-function displayQuestion(index) {
-  if (index < 0 || index >= practiceQuestions.length) return;
-  
-  const question = practiceQuestions[index];
-  currentQuestionIndex = index;
-  questionStartTime = Date.now();
-  showingAnswer = false;
-  
-  // 更新題目資訊
-  document.getElementById('current-source').textContent = `${question.Year} ${question.School}`;
-  document.getElementById('current-progress').textContent = `${index + 1} / ${practiceQuestions.length}`;
-  
-  // 顯示題目圖片
-  const questionImg = document.getElementById('question-image');
-  questionImg.src = question['Problem Image'] || '';
-  questionImg.alt = '題目圖片';
-  
-  // 載入解答和詳解圖片（但先隱藏）
-  document.getElementById('answer-image').src = question['Answer Image'] || '';
-  document.getElementById('solution-image').src = question['Solution Image'] || '';
-  
-  // 隱藏解答區域
-  document.querySelector('.answer-solution-container').style.display = 'none';
-  document.getElementById('show-answer-text').textContent = '顯示解答/詳解';
-  
-  // 載入之前的筆記（如果有）
-  const previousNote = getPreviousNote(question.ExamID);
-  document.getElementById('practice-notes').value = previousNote;
-  
-  // 載入之前的難度（如果有）
-  const previousDifficulty = getPreviousDifficulty(question.ExamID);
-  updateDifficultyStars(previousDifficulty);
-  
-  // 更新按鈕狀態
-  document.getElementById('prev-btn').disabled = index === 0;
-  document.getElementById('next-btn').disabled = false;
-  
-  // 清空當前結果
-  document.getElementById('status-message').textContent = '練習中...';
-}
-
-function prevQuestion() {
-  if (currentQuestionIndex > 0) {
-    saveCurrentQuestionState();
-    displayQuestion(currentQuestionIndex - 1);
-  }
-}
-
-function nextQuestion() {
-  if (currentQuestionIndex < practiceQuestions.length - 1) {
-    saveCurrentQuestionState();
-    displayQuestion(currentQuestionIndex + 1);
-  } else {
-    // 已是最後一題
-    showDialog('提示', '已經是最後一題了！');
-  }
-}
-
-function saveCurrentQuestionState() {
-  const question = practiceQuestions[currentQuestionIndex];
-  const difficulty = getCurrentDifficulty();
-  const notes = document.getElementById('practice-notes').value;
-  
-  // 更新或新增結果
-  const existingResult = practiceResults.find(r => r.questionId === question.ExamID);
-  if (existingResult) {
-    existingResult.difficulty = difficulty;
-    existingResult.notes = notes;
-  }
-}
-
-function toggleAnswerSolution() {
-  const container = document.querySelector('.answer-solution-container');
-  showingAnswer = !showingAnswer;
-  
-  container.style.display = showingAnswer ? 'block' : 'none';
-  document.getElementById('show-answer-text').textContent = 
-    showingAnswer ? '隱藏解答/詳解' : '顯示解答/詳解';
-}
-
-function markCorrect() {
-  recordResult('Correct');
-  showFeedback('✓ 答對');
-}
-
-function markIncorrect() {
-  recordResult('Incorrect');
-  showFeedback('✗ 答錯');
-}
-
-function markSkip() {
-  recordResult('Skipped');
-  showFeedback('⊘ 跳過');
-}
-
-function recordResult(result) {
-  const question = practiceQuestions[currentQuestionIndex];
-  const timeSpent = Math.floor((Date.now() - questionStartTime) / 1000);
-  const difficulty = getCurrentDifficulty();
-  const notes = document.getElementById('practice-notes').value;
-  
-  // 記錄結果
-  const record = {
-    questionId: question.ExamID,
-    result: result,
-    timeSpent: timeSpent,
-    difficulty: difficulty,
-    notes: notes,
-    timestamp: Date.now()
-  };
-  
-  // 更新或新增
-  const existingIndex = practiceResults.findIndex(r => r.questionId === question.ExamID);
-  if (existingIndex >= 0) {
-    practiceResults[existingIndex] = record;
-  } else {
-    practiceResults.push(record);
-  }
-  
-  // 更新統計顯示
-  updatePracticeStats();
-  
-  // 自動跳到下一題
-  if (currentQuestionIndex < practiceQuestions.length - 1) {
-    setTimeout(() => {
-      nextQuestion();
-    }, 500);
-  }
-}
-
-function showFeedback(message) {
-  document.getElementById('status-message').textContent = message;
-}
-
-function updatePracticeStats() {
-  const correct = practiceResults.filter(r => r.result === 'Correct').length;
-  const incorrect = practiceResults.filter(r => r.result === 'Incorrect').length;
-  const skip = practiceResults.filter(r => r.result === 'Skipped').length;
-  
-  document.getElementById('correct-count').textContent = correct;
-  document.getElementById('incorrect-count').textContent = incorrect;
-  document.getElementById('skip-count').textContent = skip;
-}
-
-function setDifficulty(value) {
-  updateDifficultyStars(value);
-}
-
-function updateDifficultyStars(value) {
-  const stars = document.querySelectorAll('.difficulty-rating .star');
-  stars.forEach((star, index) => {
-    if (index < value) {
-      star.textContent = '★';
-      star.classList.add('active');
-    } else {
-      star.textContent = '☆';
-      star.classList.remove('active');
-    }
-  });
-}
-
-function getCurrentDifficulty() {
-  const activeStars = document.querySelectorAll('.difficulty-rating .star.active');
-  return activeStars.length;
-}
-
-function getPreviousNote(examId) {
-  const logs = practiceLog.filter(log => log.Q_ID === examId && log.Note);
-  if (logs.length === 0) return '';
-  return logs[logs.length - 1].Note;
-}
-
-function getPreviousDifficulty(examId) {
-  const logs = practiceLog.filter(log => log.Q_ID === examId && log.Difficulty);
-  if (logs.length === 0) return 0;
-  return parseInt(logs[logs.length - 1].Difficulty) || 0;
-}
-
-// ==================== 計時器 ====================
-
-function startTimer() {
-  if (timerInterval) clearInterval(timerInterval);
-  
-  timerInterval = setInterval(() => {
-    if (!isPaused) {
-      const elapsed = Date.now() - sessionStartTime - pausedTime;
-      updateTimerDisplay(elapsed);
-    }
-  }, 1000);
-}
-
-function stopTimer() {
-  if (timerInterval) {
-    clearInterval(timerInterval);
-    timerInterval = null;
-  }
-}
-
-function togglePause() {
-  isPaused = !isPaused;
-  
-  const pauseBtn = document.getElementById('pause-btn');
-  pauseBtn.textContent = isPaused ? '▶️' : '⏸️';
-  
-  if (isPaused) {
-    // 暫停時記錄暫停開始時間
-    pauseStartTime = Date.now();
-  } else {
-    // 恢復時累加暫停時間
-    pausedTime += Date.now() - pauseStartTime;
-  }
-}
-
-function updateTimerDisplay(milliseconds) {
-  const seconds = Math.floor(milliseconds / 1000);
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = seconds % 60;
-  
-  const timeStr = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-  document.getElementById('practice-timer').textContent = timeStr;
-}
-
-// ==================== 結束練習 ====================
-
-function saveForLater() {
-  showDialog('確認', '確定要儲存並離開嗎？', () => {
-    savePracticeSession();
-    backToList();
-  });
-}
-
-function confirmExit() {
-  if (!isPracticing) {
-    backToList();
-    return;
-  }
-  
-  showDialog('確認', '練習尚未完成，確定要離開嗎？', () => {
-    savePracticeSession();
-    backToList();
-  });
-}
-
-function finishPractice() {
-  // 檢查是否所有題目都已作答
-  const unanswered = practiceQuestions.filter((q, i) => 
-    !practiceResults.find(r => r.questionId === q.ExamID)
-  );
-  
-  if (unanswered.length > 0) {
-    showDialog('提示', `還有 ${unanswered.length} 題未作答，確定要完成嗎？`, () => {
-      savePracticeSession();
-      showPracticeSummary();
-    });
-  } else {
-    savePracticeSession();
-    showPracticeSummary();
-  }
-}
-
-function savePracticeSession() {
-  const totalTime = Math.floor((Date.now() - sessionStartTime - pausedTime) / 1000);
-  const today = new Date().toISOString().split('T')[0];
-  
-  // 儲存每題結果到 practiceLog
-  practiceResults.forEach(result => {
-    const log = {
-      Q_ID: result.questionId,
-      Date: today,
-      TimeSeconds: result.timeSpent,
-      Difficulty: result.difficulty,
-      Note: result.notes,
-      Result: result.result
-    };
-    practiceLog.push(log);
-  });
-  
-  // 更新 hobbitLog
-  updateHobbitLog(today, practiceResults);
-  
-  // 儲存到 localStorage
-  saveToLocalStorage();
-  
-  stopTimer();
-  isPracticing = false;
-}
-
-function showPracticeSummary() {
-  const correct = practiceResults.filter(r => r.result === 'Correct').length;
-  const incorrect = practiceResults.filter(r => r.result === 'Incorrect').length;
-  const skip = practiceResults.filter(r => r.result === 'Skipped').length;
-  const total = practiceResults.length;
-  const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0;
-  
-  const message = `
-練習完成！
-
-總題數: ${practiceQuestions.length}
-已作答: ${total}
-答對: ${correct}
-答錯: ${incorrect}
-跳過: ${skip}
-正確率: ${accuracy}%
-
-資料已自動儲存。
-  `;
-  
-  showDialog('練習統計', message, () => {
-    backToList();
-  });
-}
-
-function backToList() {
-  stopTimer();
-  isPracticing = false;
-  showPage('main');
-  applyFilters();
-  updateMainPageStats();
-  loadHobbitLog();
-}
-
-// ==================== Hobbit Log (熱圖) ====================
-
-function updateHobbitLog(date, results) {
-  let log = hobbitLog.find(l => l.Date === date);
-  
-  if (!log) {
-    log = {
-      Date: date,
-      TotalPracticeTime: 0,
-      TotalSolved: 0,
-      TotalSkipped: 0,
-      Note: ''
-    };
-    hobbitLog.push(log);
-  }
-  
-  // 累加統計
-  results.forEach(r => {
-    log.TotalPracticeTime += r.timeSpent;
-    if (r.result === 'Correct' || r.result === 'Incorrect') {
-      log.TotalSolved++;
-    } else if (r.result === 'Skipped') {
-      log.TotalSkipped++;
-    }
-  });
-}
-
-function loadHobbitLog() {
-  const heatmapContainer = document.getElementById('hobbit-heatmap');
-  heatmapContainer.innerHTML = '';
-  
-  // 生成最近3個月的熱圖
-  const today = new Date();
-  const threeMonthsAgo = new Date(today);
-  threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-  
-  // 生成日期網格
-  const weeks = [];
-  let currentDate = new Date(threeMonthsAgo);
-  
-  while (currentDate <= today) {
-    const dateStr = currentDate.toISOString().split('T')[0];
-    const log = hobbitLog.find(l => l.Date === dateStr);
-    const practiceTime = log ? log.TotalPracticeTime : 0;
-    
-    weeks.push({
-      date: dateStr,
-      level: getHeatLevel(practiceTime),
-      time: practiceTime
-    });
-    
-    currentDate.setDate(currentDate.getDate() + 1);
-  }
-  
-  // 渲染熱圖
-  weeks.forEach(day => {
-    const cell = document.createElement('div');
-    cell.className = `heatmap-cell level-${day.level}`;
-    cell.title = `${day.date}: ${Math.floor(day.time / 60)} 分鐘`;
-    cell.onclick = () => showDayDetail(day.date);
-    heatmapContainer.appendChild(cell);
-  });
-  
-  // 更新本月統計
-  updateMonthStats();
-}
-
-function getHeatLevel(seconds) {
-  // 0: 無練習
-  // 1: 1-10分鐘
-  // 2: 11-30分鐘
-  // 3: 31-60分鐘
-  // 4: 60分鐘以上
-  const minutes = Math.floor(seconds / 60);
-  if (minutes === 0) return 0;
-  if (minutes <= 10) return 1;
-  if (minutes <= 30) return 2;
-  if (minutes <= 60) return 3;
-  return 4;
-}
-
-function showDayDetail(date) {
-  const log = hobbitLog.find(l => l.Date === date);
-  if (!log) {
-    showDialog('詳情', `${date}\n尚無練習紀錄`);
-    return;
-  }
-  
-  const minutes = Math.floor(log.TotalPracticeTime / 60);
-  const message = `
-${date}
-
-練習時間: ${minutes} 分鐘
-完成題數: ${log.TotalSolved}
-跳過題數: ${log.TotalSkipped}
-  `;
-  
-  showDialog('練習詳情', message);
-}
-
-function updateMonthStats() {
-  const today = new Date();
-  const thisMonth = today.getMonth();
-  const thisYear = today.getFullYear();
-  
-  const monthLogs = hobbitLog.filter(log => {
-    const logDate = new Date(log.Date);
-    return logDate.getMonth() === thisMonth && logDate.getFullYear() === thisYear;
-  });
-  
-  const practiceDays = monthLogs.length;
-  const totalQuestions = monthLogs.reduce((sum, log) => sum + log.TotalSolved, 0);
-  const totalTime = Math.floor(monthLogs.reduce((sum, log) => sum + log.TotalPracticeTime, 0) / 60);
-  
-  document.getElementById('month-practice-days').textContent = practiceDays;
-  document.getElementById('month-total-questions').textContent = totalQuestions;
-  document.getElementById('month-total-time').textContent = totalTime;
-}
-
-// ==================== 統計分析 ====================
-
-function showStats() {
-  const modal = document.getElementById('stats-modal');
-  const content = document.getElementById('stats-content');
-  
-  // 計算統計資料
-  const totalQuestions = allQuestions.length;
-  const practicedQuestions = getPracticedQuestions();
-  const practicedCount = practicedQuestions.length;
-  const practiceRate = totalQuestions > 0 ? Math.round((practicedCount / totalQuestions) * 100) : 0;
-  
-  const totalPracticeTime = practiceLog.reduce((sum, log) => sum + (log.TimeSeconds || 0), 0);
-  const avgTime = practiceLog.length > 0 ? Math.floor(totalPracticeTime / practiceLog.length) : 0;
-  
-  const correctCount = practiceLog.filter(l => l.Result === 'Correct').length;
-  const incorrectCount = practiceLog.filter(l => l.Result === 'Incorrect').length;
-  const skipCount = practiceLog.filter(l => l.Result === 'Skipped').length;
-  const accuracy = (correctCount + incorrectCount) > 0 ? 
-    Math.round((correctCount / (correctCount + incorrectCount)) * 100) : 0;
-  
-  content.innerHTML = `
-    <fieldset>
-      <legend>📊 總體統計</legend>
-      <table class="stats-table">
-        <tr><td>題庫總數:</td><td><strong>${totalQuestions}</strong> 題</td></tr>
-        <tr><td>已練習:</td><td><strong>${practicedCount}</strong> 題 (${practiceRate}%)</td></tr>
-        <tr><td>練習次數:</td><td><strong>${practiceLog.length}</strong> 次</td></tr>
-        <tr><td>總練習時間:</td><td><strong>${Math.floor(totalPracticeTime / 60)}</strong> 分鐘</td></tr>
-        <tr><td>平均每題:</td><td><strong>${avgTime}</strong> 秒</td></tr>
-      </table>
-    </fieldset>
-    
-    <fieldset>
-      <legend>✓ 答題結果</legend>
-      <table class="stats-table">
-        <tr><td>答對:</td><td><strong>${correctCount}</strong> 次</td></tr>
-        <tr><td>答錯:</td><td><strong>${incorrectCount}</strong> 次</td></tr>
-        <tr><td>跳過:</td><td><strong>${skipCount}</strong> 次</td></tr>
-        <tr><td>正確率:</td><td><strong>${accuracy}%</strong></td></tr>
-      </table>
-    </fieldset>
-    
-    <fieldset>
-      <legend>⭐ 難度分析</legend>
-      ${renderDifficultyAnalysis()}
-    </fieldset>
-  `;
-  
-  modal.style.display = 'flex';
-}
-
-function closeStatsModal() {
-  document.getElementById('stats-modal').style.display = 'none';
-}
-
-function renderDifficultyAnalysis() {
-  const byDifficulty = {};
-  
-  practiceLog.forEach(log => {
-    const diff = log.Difficulty || 0;
-    if (!byDifficulty[diff]) {
-      byDifficulty[diff] = { correct: 0, incorrect: 0, total: 0 };
-    }
-    
-    byDifficulty[diff].total++;
-    if (log.Result === 'Correct') byDifficulty[diff].correct++;
-    if (log.Result === 'Incorrect') byDifficulty[diff].incorrect++;
-  });
-  
-  let html = '<table class="stats-table">';
-  for (let i = 1; i <= 5; i++) {
-    const data = byDifficulty[i] || { correct: 0, incorrect: 0, total: 0 };
-    const accuracy = data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0;
-    
-    html += `
-      <tr>
-        <td>${renderStars(i)}</td>
-        <td>${data.total} 次</td>
-        <td>${accuracy}% 正確</td>
-      </tr>
-    `;
-  }
-  html += '</table>';
-  
-  return html;
-}
-
 // ==================== 鍵盤快捷鍵 ====================
 
 function handleKeyboard(e) {
-  if (!isPracticing) return;
+  // Esc 關閉圖片預覽
+  if (e.key === 'Escape') {
+    const imageModal = document.getElementById('image-modal');
+    if (imageModal && imageModal.style.display === 'flex') {
+      closeImageModal();
+      return;
+    }
+  }
   
-  // 防止在輸入框時觸發快捷鍵
-  if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
-  
-  switch(e.key) {
-    case 'ArrowLeft':
-      prevQuestion();
-      break;
-    case 'ArrowRight':
-    case 'Enter':
-      nextQuestion();
-      break;
-    case ' ':
+  // 空白鍵確認訊息框
+  if (e.key === ' ' || e.key === 'Spacebar') {
+    const messageModal = document.getElementById('message-modal');
+    if (messageModal && messageModal.style.display === 'flex') {
       e.preventDefault();
-      togglePause();
-      break;
-    case 'c':
-    case 'C':
-      markCorrect();
-      break;
-    case 'x':
-    case 'X':
-      markIncorrect();
-      break;
-    case 's':
-    case 'S':
-      markSkip();
-      break;
-    case 'a':
-    case 'A':
-      toggleAnswerSolution();
-      break;
-    case '1':
-    case '2':
-    case '3':
-    case '4':
-    case '5':
-      setDifficulty(parseInt(e.key));
-      break;
+      closeMessageModal();
+      return;
+    }
+  }
+  
+  const page = document.querySelector('.page.active');
+  if (!page) return;
+  
+  // 在輸入框中不觸發（除了Ctrl+S）
+  if ((e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') 
+      && !(e.ctrlKey && e.key.toLowerCase() === 's')) {
+    return;
+  }
+  
+  // 預測頁面
+  if (page.id === 'page-predict') {
+    switch(e.key.toLowerCase()) {
+      case '1':
+      case '2':
+      case '3':
+      case '4':
+      case '5':
+        e.preventDefault();
+        predictSetDiff(parseInt(e.key));
+        break;
+      case 'arrowleft':
+        e.preventDefault();
+        predictPrevQuestion();
+        break;
+      case 'arrowright':
+        e.preventDefault();
+        predictNextQuestion();
+        break;
+      case 'enter':
+        e.preventDefault();
+        document.getElementById('btn-start-practice').click();
+        break;
+    }
+  }
+  
+  // 練習頁面
+  if (page.id === 'page-practice') {
+    // Ctrl+S 存檔
+    if (e.ctrlKey && e.key.toLowerCase() === 's') {
+      e.preventDefault();
+      saveCurrentNote();
+      return;
+    }
+    
+    switch(e.key.toLowerCase()) {
+      case 'a':
+        e.preventDefault();
+        toggleAnswer();
+        break;
+      case 'c':
+        e.preventDefault();
+        recordResult('Correct');
+        break;
+      case 'x':
+        e.preventDefault();
+        recordResult('Incorrect');
+        break;
+      case 's':
+        e.preventDefault();
+        recordResult('Skipped');
+        break;
+      case 'arrowleft':
+        e.preventDefault();
+        prevQuestion();
+        break;
+      case 'arrowright':
+        e.preventDefault();
+        nextQuestion();
+        break;
+      case '1':
+      case '2':
+      case '3':
+      case '4':
+      case '5':
+        e.preventDefault();
+        setDifficulty(parseInt(e.key));
+        break;
+      case 'enter':
+        e.preventDefault();
+        document.getElementById('btn-end-session').click();
+        break;
+    }
   }
 }
 
-// ==================== 輔助工具 ====================
+// ==================== 主題切換 ====================
 
-function shuffleArray(array) {
-  for (let i = array.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [array[i], array[j]] = [array[j], array[i]];
-  }
+function loadTheme() {
+  const savedTheme = localStorage.getItem('theme') || 'win98';
+  switchTheme(savedTheme);
 }
 
-// ==================== 欄位顯示控制 ====================
-
-function toggleImageColumn() {
-  updateColumnVisibility();
-}
-
-function toggleTextColumn() {
-  updateColumnVisibility();
-}
-
-function updateColumnVisibility() {
-  const showImage = document.getElementById('show-image')?.checked ?? true;
-  const showText = document.getElementById('show-text')?.checked ?? true;
+function switchTheme(theme) {
+  const themeLink = document.getElementById('theme-style');
+  themeLink.href = `style-${theme}.css`;
   
-  // 更新表頭
-  const table = document.getElementById('question-table');
-  if (table) {
-    const imageHeaders = table.querySelectorAll('th.col-image');
-    const textHeaders = table.querySelectorAll('th.col-text');
-    const imageCells = table.querySelectorAll('td.col-image');
-    const textCells = table.querySelectorAll('td.col-text');
-    
-    imageHeaders.forEach(th => {
-      th.style.display = showImage ? '' : 'none';
-    });
-    
-    textHeaders.forEach(th => {
-      th.style.display = showText ? '' : 'none';
-    });
-    
-    imageCells.forEach(td => {
-      td.style.display = showImage ? '' : 'none';
-    });
-    
-    textCells.forEach(td => {
-      td.style.display = showText ? '' : 'none';
-    });
-  }
-}
-
-function showImagePreview(imageSrc) {
-  const message = `<img src="${imageSrc}" style="max-width: 600px; max-height: 600px; border: 1px solid #ccc;">`;
+  // 更新按鈕狀態
+  document.querySelectorAll('.theme-btn').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  document.getElementById(`theme-${theme}`).classList.add('active');
   
-  const modal = document.getElementById('dialog-modal');
-  const titleElem = document.getElementById('dialog-title');
-  const messageElem = document.getElementById('dialog-message');
-  
-  titleElem.textContent = '題目圖片預覽';
-  messageElem.innerHTML = message;
-  modal.style.display = 'flex';
+  // 儲存選擇
+  localStorage.setItem('theme', theme);
 }
 
 // ==================== 初始化完成 ====================

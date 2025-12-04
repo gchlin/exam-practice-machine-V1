@@ -1,0 +1,863 @@
+/* ==================== 粉嫩柔和風格 ==================== */
+/* 適合女生的現代溫柔配色 */
+
+/* ==================== 全域設定 ==================== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Microsoft YaHei", "微軟正黑體", "Apple LiGothic", sans-serif;
+  background: linear-gradient(135deg, #ffeef8 0%, #e8f5ff 50%, #fff0f5 100%);
+  color: #4a4a4a;
+  line-height: 1.6;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+/* ==================== 視窗 ==================== */
+.win98-window {
+  max-width: 1400px;
+  margin: 0 auto;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(255, 105, 180, 0.15);
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+}
+
+/* ==================== 標題列 ==================== */
+.win98-titlebar {
+  background: linear-gradient(135deg, #ff9ed8 0%, #c49ff5 50%, #9fd8ff 100%);
+  color: #fff;
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  font-size: 16px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.win98-titlebar-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.win98-titlebar-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.win98-titlebar-button {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+}
+
+.win98-titlebar-button:hover {
+  background: rgba(255, 255, 255, 0.5);
+  transform: scale(1.1);
+}
+
+/* ==================== 選單列 ==================== */
+.win98-menubar {
+  background: linear-gradient(to bottom, #fff0f8, #fef5ff);
+  border-bottom: 2px solid #ffd4eb;
+  padding: 6px 12px;
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+}
+
+.menu-item {
+  color: #d946ef;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.3s;
+}
+
+.menu-item:hover {
+  background: rgba(217, 70, 239, 0.1);
+  transform: translateY(-1px);
+}
+
+/* ==================== 內容區 - 固定高度 ==================== */
+.win98-content {
+  padding: 16px;
+  height: calc(100vh - 200px);
+  overflow: hidden;
+}
+
+.page {
+  height: 100%;
+  display: none;
+  flex-direction: column;
+}
+
+.page.active {
+  display: flex;
+}
+
+/* ==================== 頂部資訊欄 ==================== */
+.top-info-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: linear-gradient(to right, #ffe8f5, #e8f0ff);
+  border-radius: 12px;
+  margin-bottom: 12px;
+  gap: 12px;
+  flex-wrap: nowrap;
+  box-shadow: 0 4px 12px rgba(255, 105, 180, 0.1);
+}
+
+.info-left {
+  flex-shrink: 0;
+}
+
+.info-center {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+}
+
+.info-right {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.section-title-inline {
+  font-weight: 600;
+  font-size: 15px;
+  color: #d946ef;
+  white-space: nowrap;
+}
+
+/* ==================== 內聯熱力圖 ==================== */
+.heatmap-inline {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, 14px);
+  gap: 3px;
+  max-width: 600px;
+  justify-content: center;
+}
+
+.heatmap-inline .heat-cell {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.heatmap-inline .heat-cell:hover {
+  transform: scale(1.3);
+  box-shadow: 0 2px 8px rgba(255, 105, 180, 0.3);
+}
+
+/* 粉色系熱力圖 */
+.heat-0 { background: #f5f5f5; }
+.heat-1 { background: #ffd4eb; }
+.heat-2 { background: #ffb3d9; }
+.heat-3 { background: #ff8cc7; }
+.heat-4 { background: #ff66b5; }
+
+/* ==================== 本月統計 ==================== */
+.month-stats {
+  text-align: right;
+  margin-bottom: 4px;
+}
+
+#month-stats-text {
+  font-size: 12px;
+  color: #666;
+  font-weight: 500;
+}
+
+.motivational-quote {
+  font-size: 11px;
+  color: #d946ef;
+  font-style: italic;
+  font-weight: 500;
+  margin-top: 3px;
+}
+
+.top-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+/* ==================== 狀態列 ==================== */
+.win98-statusbar {
+  background: linear-gradient(to right, #fff0f8, #f0f8ff);
+  border-top: 2px solid #ffd4eb;
+  padding: 6px 12px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #666;
+}
+
+/* ==================== 按鈕 ==================== */
+.win98-button {
+  border: none;
+  background: linear-gradient(135deg, #ff9ed8, #c49ff5);
+  color: #fff;
+  padding: 8px 16px;
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: 20px;
+  transition: all 0.3s;
+  box-shadow: 0 4px 12px rgba(255, 105, 180, 0.2);
+  font-weight: 500;
+}
+
+.win98-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 105, 180, 0.3);
+}
+
+.win98-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(255, 105, 180, 0.2);
+}
+
+.win98-button.small {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.win98-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ==================== 輸入框 & 下拉選單 ==================== */
+.win98-input {
+  border: 2px solid #ffd4eb;
+  background: #fff;
+  padding: 6px 10px;
+  font-size: 13px;
+  border-radius: 10px;
+  transition: all 0.3s;
+  color: #4a4a4a;
+}
+
+.win98-input:focus {
+  outline: none;
+  border-color: #ff9ed8;
+  box-shadow: 0 0 0 3px rgba(255, 158, 216, 0.1);
+}
+
+select.win98-input {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2 4L6 8L10 4' stroke='%23ff9ed8' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 30px;
+}
+
+textarea.win98-input {
+  width: 100%;
+  min-height: 80px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+/* ==================== 工具列 ==================== */
+.toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 12px;
+  background: linear-gradient(to right, #fff5fa, #f5f9ff);
+  border-radius: 12px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  box-shadow: 0 2px 8px rgba(255, 105, 180, 0.08);
+}
+
+.toolbar-group {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 10px;
+  border: 1px solid #ffe8f5;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 600;
+  margin-right: 4px;
+  color: #d946ef;
+}
+
+/* ==================== 表格容器 - 可滾動 ==================== */
+.table-container {
+  flex: 1;
+  overflow: auto;
+  border-radius: 12px;
+  background: #fff;
+  margin-top: 8px;
+  min-height: 0;
+  box-shadow: 0 4px 12px rgba(255, 105, 180, 0.08);
+}
+
+/* ==================== 緊湊表格 ==================== */
+.compact-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  table-layout: fixed;
+}
+
+.compact-table thead {
+  position: sticky;
+  top: 0;
+  background: linear-gradient(135deg, #ff9ed8, #c49ff5);
+  color: #fff;
+  z-index: 10;
+}
+
+.compact-table th {
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 8px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.compact-table td {
+  border: 1px solid #ffe8f5;
+  padding: 6px 8px;
+  font-size: 12px;
+  vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.compact-table tbody tr:nth-child(even) {
+  background: #fff5fa;
+}
+
+.compact-table tbody tr:hover {
+  background: #ffe8f5;
+  transition: all 0.3s;
+}
+
+/* 欄位寬度 */
+.col-check  { width: 30px; min-width: 30px; text-align: center; }
+.col-num    { width: 40px; min-width: 40px; text-align: center; }
+.col-year   { width: 45px; min-width: 45px; }
+.col-school { width: 55px; min-width: 55px; }
+.col-chapter{ width: 100px; min-width: 80px; }
+.col-diff   { width: 60px; min-width: 60px; text-align: center; }
+.col-image  { width: 100px; min-width: 100px; }
+.col-text   { width: 250px; min-width: 150px; max-width: 400px; }
+.col-count  { width: 40px; min-width: 40px; text-align: center; }
+.col-date   { width: 70px; min-width: 70px; }
+.col-skip   { width: 40px; min-width: 40px; text-align: center; }
+
+/* 圖片縮圖 */
+.thumbnail {
+  max-width: 90px;
+  max-height: 50px;
+  cursor: pointer;
+  border-radius: 6px;
+  display: block;
+  transition: all 0.3s;
+  box-shadow: 0 2px 6px rgba(255, 105, 180, 0.1);
+}
+
+.thumbnail:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(255, 105, 180, 0.2);
+}
+
+.question-text {
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ==================== 顯示選項 ==================== */
+.display-options {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  padding: 8px 12px;
+  background: linear-gradient(to right, #fff5fa, #f5f9ff);
+  border-radius: 10px;
+  margin-top: 4px;
+}
+
+.display-options label {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.3s;
+}
+
+.display-options label:hover {
+  color: #d946ef;
+}
+
+/* ==================== 頁面 ==================== */
+.section-title {
+  font-weight: 600;
+  font-size: 15px;
+  color: #d946ef;
+  margin: 8px 0 6px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid #ffd4eb;
+}
+
+/* ==================== 欄位行 ==================== */
+.field-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+/* ==================== 預測難度頁面 ==================== */
+.predict-progress {
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px;
+  background: linear-gradient(to right, #ffe8f5, #e8f0ff);
+  border-radius: 10px;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+  color: #d946ef;
+}
+
+.predict-single-view {
+  border-radius: 12px;
+  background: #fff;
+  padding: 16px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  box-shadow: 0 4px 12px rgba(255, 105, 180, 0.08);
+}
+
+.predict-info-bar {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: linear-gradient(to right, #fff5fa, #f5f9ff);
+  border-radius: 10px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.predict-image-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex: 1;
+  margin-bottom: 16px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #fff5fa, #f5f9ff);
+  min-height: 0;
+}
+
+.predict-image-container img {
+  max-width: 90%;
+  max-height: 100%;
+  cursor: pointer;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(255, 105, 180, 0.15);
+  transition: all 0.3s;
+}
+
+.predict-image-container img:hover {
+  transform: scale(1.02);
+  box-shadow: 0 12px 32px rgba(255, 105, 180, 0.2);
+}
+
+.predict-rating-area {
+  text-align: center;
+  padding: 16px;
+  background: linear-gradient(to right, #ffe8f5, #e8f0ff);
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+
+.predict-instruction {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #d946ef;
+}
+
+.predict-stars {
+  justify-content: center;
+  gap: 10px;
+}
+
+.predict-stars .star {
+  width: 36px;
+  height: 36px;
+  font-size: 26px;
+  line-height: 36px;
+}
+
+/* ==================== 練習頁面 ==================== */
+.practice-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  background: linear-gradient(to right, #ffe8f5, #e8f0ff);
+  border-radius: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 10px;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(255, 105, 180, 0.08);
+}
+
+.practice-info {
+  font-weight: 500;
+  color: #4a4a4a;
+}
+
+.practice-layout {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+}
+
+.practice-left {
+  flex: 2;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #fff5fa, #f5f9ff);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  box-shadow: 0 4px 12px rgba(255, 105, 180, 0.08);
+}
+
+.practice-right {
+  flex: 1;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #f5f9ff, #fff5fa);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  box-shadow: 0 4px 12px rgba(255, 105, 180, 0.08);
+}
+
+.image-frame {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #fff;
+  border-radius: 10px;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.image-frame img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.3s;
+}
+
+.image-frame img:hover {
+  transform: scale(1.02);
+}
+
+.answer-placeholder {
+  color: #999;
+  font-size: 13px;
+  text-align: center;
+}
+
+#answer-container {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px;
+}
+
+.practice-controls {
+  flex-shrink: 0;
+}
+
+/* ==================== 雙計時器 ==================== */
+.timer-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.timer-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.timer-display {
+  font-family: "Courier New", "Consolas", monospace;
+  font-size: 16px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #ffebb3, #ffe8a3);
+  color: #6b4423;
+  padding: 6px 14px;
+  border-radius: 10px;
+  min-width: 75px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(255, 165, 0, 0.2);
+}
+
+/* ==================== 星星 ==================== */
+.stars {
+  display: flex;
+  gap: 4px;
+}
+
+.star {
+  font-size: 20px;
+  cursor: pointer;
+  color: #ddd;
+  transition: all 0.3s;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.star:hover {
+  color: #ffd700;
+  transform: scale(1.2);
+}
+
+.star.active {
+  color: #ff9ed8;
+}
+
+/* ==================== Panel ==================== */
+.panel {
+  border-radius: 12px;
+  background: linear-gradient(to bottom, #fff, #fff5fa);
+  padding: 12px;
+  box-shadow: 0 2px 8px rgba(255, 105, 180, 0.08);
+}
+
+/* ==================== Modal ==================== */
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 182, 193, 0.3);
+  backdrop-filter: blur(8px);
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-content {
+  background: #fff;
+  padding: 24px;
+  border-radius: 20px;
+  max-width: 90%;
+  max-height: 90%;
+  overflow: auto;
+  box-shadow: 0 20px 60px rgba(255, 105, 180, 0.3);
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-30px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.modal-header {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: #d946ef;
+  border-bottom: 2px solid #ffd4eb;
+  padding-bottom: 10px;
+}
+
+.modal-body {
+  margin: 16px 0;
+  max-height: 80vh;
+  overflow: auto;
+}
+
+.modal-body img {
+  max-width: 100%;
+  max-height: 80vh;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(255, 105, 180, 0.15);
+}
+
+.modal-footer {
+  text-align: right;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #ffd4eb;
+}
+
+/* ==================== 工具樣式 ==================== */
+.small {
+  font-size: 12px;
+}
+
+.highlight {
+  font-weight: 600;
+  color: #d946ef;
+}
+
+.flex-row {
+  display: flex;
+  gap: 12px;
+}
+
+.flex-1 { flex: 1; }
+.flex-2 { flex: 2; }
+
+.mt-4 { margin-top: 8px; }
+.mt-8 { margin-top: 16px; }
+.mb-4 { margin-bottom: 8px; }
+.ml-4 { margin-left: 8px; }
+.ml-8 { margin-left: 16px; }
+
+/* ==================== 響應式 ==================== */
+@media (max-width: 1200px) {
+  .win98-window {
+    max-width: 100%;
+  }
+  
+  .practice-layout {
+    flex-direction: column;
+  }
+  
+  .practice-left,
+  .practice-right {
+    flex: 1;
+    min-height: 300px;
+  }
+}
+
+@media (max-width: 768px) {
+  body {
+    padding: 10px;
+  }
+  
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .toolbar-group {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .timer-group {
+    flex-direction: column;
+    gap: 6px;
+  }
+  
+  .predict-stars .star {
+    width: 30px;
+    height: 30px;
+    font-size: 22px;
+    line-height: 30px;
+  }
+}
+
+/* ==================== 捲軸美化 ==================== */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #fff0f8;
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #ff9ed8, #c49ff5);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #ff8ccf, #b88feb);
+}
+
+/* ==================== 列印 ==================== */
+@media print {
+  body {
+    background: #fff;
+  }
+  
+  .win98-titlebar,
+  .win98-menubar,
+  .win98-statusbar,
+  .toolbar,
+  .display-options,
+  button {
+    display: none !important;
+  }
+}

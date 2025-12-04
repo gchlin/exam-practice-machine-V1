@@ -3,345 +3,469 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>刷題機 V1</title>
-  <link rel="stylesheet" href="style.css">
+  <title>刷題機 V2.0</title>
+  <link id="theme-style" rel="stylesheet" href="style-win98.css">
+  <style>
+    /* 風格切換按鈕 */
+    .theme-switcher {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .theme-btn {
+      padding: 4px 10px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 11px;
+      border: 2px solid transparent;
+      transition: all 0.3s;
+      background: rgba(255, 255, 255, 0.3);
+      color: #fff;
+    }
+    .theme-btn:hover {
+      background: rgba(255, 255, 255, 0.5);
+    }
+    .theme-btn.active {
+      border-color: #fff;
+      background: rgba(255, 255, 255, 0.6);
+      font-weight: bold;
+    }
+  </style>
 </head>
 <body>
 
-  <!-- 頁面 1: 主頁（題目列表 + Hobbit Log） -->
-  <div id="page-main" class="page active">
+  <!-- 主視窗 -->
+  <div class="win98-window">
     
-    <!-- 視窗標題列 -->
-    <div class="window">
-      <div class="title-bar">
-        <div class="title-bar-text">刷題機 V1 - 題目列表</div>
-        <div class="title-bar-controls">
-          <button aria-label="Minimize"></button>
-          <button aria-label="Maximize"></button>
-          <button aria-label="Close"></button>
-        </div>
+    <!-- 標題列 -->
+    <div class="win98-titlebar">
+      <div class="win98-titlebar-text">刷題機 V2.0</div>
+      <div class="theme-switcher">
+        <div class="theme-btn active" onclick="switchTheme('win98')" id="theme-win98">復古</div>
+        <div class="theme-btn" onclick="switchTheme('pastel')" id="theme-pastel">柔和</div>
       </div>
-      
-      <div class="window-body">
-        
-        <!-- Hobbit Log 區域 -->
-        <fieldset class="hobbit-section">
-          <legend>📅 練習熱圖</legend>
-          <div id="hobbit-heatmap" class="heatmap-container">
-            <!-- 熱圖會在這裡動態生成 -->
-          </div>
-          <div id="daily-quote" class="daily-quote">
-            💪 每天進步一點點，堅持就是勝利！
-          </div>
-          <div class="hobbit-stats">
-            <span>本月練習: <strong id="month-practice-days">0</strong> 天</span>
-            <span>總題數: <strong id="month-total-questions">0</strong> 題</span>
-            <span>總時間: <strong id="month-total-time">0</strong> 分鐘</span>
-          </div>
-        </fieldset>
-        
-        <!-- 篩選器 -->
-        <fieldset>
-          <legend>🔍 篩選條件</legend>
-          <div class="filter-row">
-            <label>年份:</label>
-            <select id="filter-year">
-              <option value="">全部</option>
-            </select>
-            
-            <label>學校:</label>
-            <select id="filter-school">
-              <option value="">全部</option>
-            </select>
-            
-            <label>章節:</label>
-            <select id="filter-chapter">
-              <option value="">全部</option>
-            </select>
-            
-            <label>難度:</label>
-            <select id="filter-difficulty">
-              <option value="">全部</option>
-              <option value="1">1 星</option>
-              <option value="2">2 星</option>
-              <option value="3">3 星</option>
-              <option value="4">4 星</option>
-              <option value="5">5 星</option>
-            </select>
-          </div>
-          
-          <div class="filter-row">
-            <label>狀態:</label>
-            <select id="filter-status">
-              <option value="">全部</option>
-              <option value="practiced">已練習</option>
-              <option value="unpracticed">未練習</option>
-            </select>
-            
-            <label>搜尋:</label>
-            <input type="text" id="filter-search" placeholder="搜尋題目內容...">
-            
-            <button onclick="applyFilters()">🔍 套用篩選</button>
-            <button onclick="resetFilters()">🔄 重設</button>
-          </div>
-        </fieldset>
-        
-        <!-- 題目列表 -->
-        <fieldset>
-          <legend>📝 題目列表 (<span id="question-count">0</span> 題)</legend>
-          
-          <!-- 顯示選項 -->
-          <div class="display-options">
-            <label>
-              <input type="checkbox" id="show-image" checked onchange="toggleImageColumn()">
-              顯示題目圖片
-            </label>
-            <label>
-              <input type="checkbox" id="show-text" checked onchange="toggleTextColumn()">
-              顯示題目文字
-            </label>
-          </div>
-          
-          <div class="table-container">
-            <table id="question-table" class="resizable-table">
-              <thead>
-                <tr>
-                  <th class="col-checkbox"><input type="checkbox" id="select-all" onchange="toggleSelectAll()"></th>
-                  <th class="col-number">序號</th>
-                  <th class="col-year">年分</th>
-                  <th class="col-school">學校</th>
-                  <th class="col-chapter">章節</th>
-                  <th class="col-difficulty">難度</th>
-                  <th class="col-practice">練習次數</th>
-                  <th class="col-date">最近練習</th>
-                  <th class="col-skip">跳過</th>
-                  <th class="col-image">題目圖片</th>
-                  <th class="col-text">題目文字</th>
-                </tr>
-              </thead>
-              <tbody id="question-list">
-                <!-- 題目列表會在這裡動態生成 -->
-              </tbody>
-            </table>
-          </div>
-        </fieldset>
-        
-        <!-- 底部操作按鈕 -->
-        <div class="button-row">
-          <div class="button-group">
-            <button onclick="loadQuestionBank()">📂 載入題庫</button>
-            <button onclick="exportData()">💾 匯出資料</button>
-            <button onclick="showStats()">📊 統計分析</button>
-          </div>
-          
-          <div class="button-group">
-            <label>
-              <input type="checkbox" id="predict-mode">
-              預測難度模式
-            </label>
-            <button onclick="startPractice('normal')" class="primary">▶️ 開始練習</button>
-            <button onclick="startPractice('random')">🎲 隨機3題</button>
-          </div>
-        </div>
-        
-      </div>
-      
-      <!-- 狀態列 -->
-      <div class="status-bar">
-        <div class="status-bar-field">就緒</div>
-        <div class="status-bar-field">題庫: <span id="total-questions">0</span> 題</div>
-        <div class="status-bar-field">已練習: <span id="practiced-count">0</span> 題</div>
-        <div class="status-bar-field" id="status-time">00:00:00</div>
+      <div class="win98-titlebar-buttons">
+        <div class="win98-titlebar-button">_</div>
+        <div class="win98-titlebar-button">□</div>
+        <div class="win98-titlebar-button">✕</div>
       </div>
     </div>
-    
-  </div>
-  
-  <!-- 頁面 2: 刷題頁面 -->
-  <div id="page-practice" class="page">
-    
-    <div class="window practice-window">
-      <div class="title-bar">
-        <div class="title-bar-text">刷題機 V1 - 練習中</div>
-        <div class="title-bar-controls">
-          <button aria-label="Minimize"></button>
-          <button aria-label="Maximize"></button>
-          <button aria-label="Close" onclick="confirmExit()"></button>
-        </div>
-      </div>
-      
-      <div class="window-body">
-        
-        <!-- 題目資訊列 -->
-        <div class="practice-header">
-          <div class="question-source">
-            題目來源: <strong id="current-source">114 蘭陽女中</strong>
-          </div>
-          <div class="progress-info">
-            <span id="current-progress">1 / 10</span>
-          </div>
-          <div class="timer-display">
-            ⏱️ <span id="practice-timer">00:00:00</span>
-            <button id="pause-btn" onclick="togglePause()">⏸️</button>
-          </div>
-        </div>
-        
-        <!-- 題目顯示區 -->
-        <div class="question-display">
-          <div class="image-container">
-            <img id="question-image" src="" alt="題目圖片">
-          </div>
-          
-          <div class="answer-solution-container" style="display: none;">
-            <div class="image-row">
-              <div class="image-col">
-                <h4>📋 解答</h4>
-                <img id="answer-image" src="" alt="解答">
-              </div>
-              <div class="image-col">
-                <h4>📖 詳解</h4>
-                <img id="solution-image" src="" alt="詳解">
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <!-- 控制按鈕 -->
-        <div class="practice-controls">
-          <div class="nav-buttons">
-            <button onclick="prevQuestion()" id="prev-btn">⬅️ 上一題 (←)</button>
-            <button onclick="nextQuestion()" id="next-btn">下一題 ➡️ (→)</button>
-          </div>
-          
-          <div class="action-buttons">
-            <button onclick="toggleAnswerSolution()">
-              <span id="show-answer-text">顯示解答/詳解</span>
-            </button>
-            <button onclick="markCorrect()" class="success">✓ 答對 (C)</button>
-            <button onclick="markIncorrect()" class="danger">✗ 答錯 (X)</button>
-            <button onclick="markSkip()" class="warning">⊘ 跳過 (S)</button>
-          </div>
-        </div>
-        
-        <!-- 難度評價與筆記 -->
-        <fieldset>
-          <legend>⭐ 難度評價</legend>
-          <div class="difficulty-rating">
-            <span class="star" data-value="1" onclick="setDifficulty(1)">☆</span>
-            <span class="star" data-value="2" onclick="setDifficulty(2)">☆</span>
-            <span class="star" data-value="3" onclick="setDifficulty(3)">☆</span>
-            <span class="star" data-value="4" onclick="setDifficulty(4)">☆</span>
-            <span class="star" data-value="5" onclick="setDifficulty(5)">☆</span>
-            <span class="difficulty-hint">按 1-5 鍵快速評分</span>
-          </div>
-        </fieldset>
-        
-        <fieldset>
-          <legend>📝 筆記</legend>
-          <textarea id="practice-notes" rows="3" placeholder="記錄解題心得、易錯點..."></textarea>
-        </fieldset>
-        
-        <!-- 底部按鈕 -->
-        <div class="button-row">
-          <button onclick="saveForLater()">💾 改天再戰</button>
-          <button onclick="backToList()">⬅️ 回到列表</button>
-          <button onclick="finishPractice()" class="primary">✓ 完成練習</button>
-        </div>
-        
-      </div>
-      
-      <!-- 狀態列 -->
-      <div class="status-bar">
-        <div class="status-bar-field"><span id="status-message">練習中...</span></div>
-        <div class="status-bar-field">答對: <span id="correct-count">0</span></div>
-        <div class="status-bar-field">答錯: <span id="incorrect-count">0</span></div>
-        <div class="status-bar-field">跳過: <span id="skip-count">0</span></div>
-      </div>
+
+    <!-- 選單列 -->
+    <div class="win98-menubar">
+      檔案(F) 編輯(E) 檢視(V) 工具(T) 說明(H)
     </div>
-    
-  </div>
-  
-  <!-- 統計分析彈窗 -->
-  <div id="stats-modal" class="modal" style="display: none;">
-    <div class="window modal-window">
-      <div class="title-bar">
-        <div class="title-bar-text">📊 統計分析</div>
-        <div class="title-bar-controls">
-          <button aria-label="Close" onclick="closeStatsModal()"></button>
-        </div>
-      </div>
-      <div class="window-body">
-        <div id="stats-content">
-          <!-- 統計內容會動態生成 -->
-        </div>
-        <div class="button-row center">
-          <button onclick="closeStatsModal()">關閉</button>
-        </div>
-      </div>
-    </div>
-  </div>
-  
-  <!-- 載入題庫彈窗 -->
-  <div id="load-modal" class="modal" style="display: none;">
-    <div class="window modal-window-small">
-      <div class="title-bar">
-        <div class="title-bar-text">📂 載入題庫</div>
-        <div class="title-bar-controls">
-          <button aria-label="Close" onclick="closeLoadModal()"></button>
-        </div>
-      </div>
-      <div class="window-body">
-        <fieldset>
-          <legend>選擇載入方式</legend>
-          
-          <div class="field-row">
-            <input type="radio" name="load-mode" id="load-online" value="online" checked>
-            <label for="load-online">線上題庫 (使用伺服器上的 data.csv)</label>
-          </div>
-          
-          <div class="field-row">
-            <input type="radio" name="load-mode" id="load-local" value="local">
-            <label for="load-local">本地檔案</label>
-          </div>
-          
-          <div class="field-row" id="local-file-row" style="display: none;">
-            <label>選擇 CSV 檔案:</label>
-            <input type="file" id="csv-file-input" accept=".csv">
-          </div>
-        </fieldset>
+
+    <!-- 主要內容 -->
+    <div class="win98-content">
+
+      <!-- ========== 頁面 0: 載入題庫 ========== -->
+      <div id="page-load" class="page active">
+        <div class="section-title">步驟 1：載入題庫 data.csv</div>
         
-        <div class="progress-container" id="load-progress" style="display: none;">
+        <div class="field-row">
+          <span class="label">載入方式：</span>
+          <label>
+            <input type="radio" name="load-mode" value="online" checked>
+            線上題庫 (data.csv)
+          </label>
+          <label>
+            <input type="radio" name="load-mode" value="local">
+            本地檔案
+          </label>
+        </div>
+
+        <div class="field-row" id="local-file-row" style="display: none;">
+          <span class="label">選擇 CSV：</span>
+          <input id="file-input" type="file" accept=".csv">
+        </div>
+
+        <div class="field-row">
+          <button id="btn-load-csv" class="win98-button">載入題庫</button>
+        </div>
+
+        <div id="load-progress" class="progress-container" style="display: none;">
           <div class="progress-bar">
             <div class="progress-fill" id="load-progress-fill"></div>
           </div>
           <div class="progress-text" id="load-progress-text">載入中...</div>
         </div>
-        
-        <div class="button-row center">
-          <button onclick="executeLoad()" class="primary">開始載入</button>
-          <button onclick="closeLoadModal()">取消</button>
+
+        <div class="small mt-8">
+          建議：使用本地伺服器開啟（<code>python -m http.server 8000</code>），<br/>
+          圖片路徑寫成 <code>images/xxx.webp</code>。
         </div>
+
+        <div id="load-status" class="mt-8 small"></div>
+      </div>
+
+      <!-- ========== 頁面 1: 題目列表 ========== -->
+      <div id="page-list" class="page">
+        
+        <!-- 頂部資訊欄 -->
+        <div class="top-info-bar">
+          <div class="info-left">
+            <div class="section-title-inline">📝 題目列表 (<span id="filtered-count">0</span> / <span id="total-count">0</span> 題)</div>
+          </div>
+          
+          <div class="info-center">
+            <!-- Hobbit Log 熱力圖 -->
+            <div class="heatmap-inline" id="heatmap"></div>
+          </div>
+          
+          <div class="info-right">
+            <!-- 本月統計 -->
+            <div class="month-stats">
+              <div class="small" id="month-stats-text">本月：0天 / 0題 / 0分鐘</div>
+              <div class="motivational-quote">"持之以恆，必有所成"</div>
+            </div>
+            <!-- 功能按鈕 -->
+            <div class="top-buttons">
+              <button id="btn-export-logs" class="win98-button small">匯出紀錄</button>
+              <button id="btn-show-stats" class="win98-button small">統計分析</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 工具列 -->
+        <div class="toolbar">
+          <!-- 篩選 -->
+          <div class="toolbar-group">
+            <span class="label">篩選：</span>
+            <label class="small">
+              年份
+              <select id="filter-year" class="win98-input">
+                <option value="">全部</option>
+              </select>
+            </label>
+            <label class="small">
+              學校
+              <select id="filter-school" class="win98-input">
+                <option value="">全部</option>
+              </select>
+            </label>
+            <label class="small">
+              章節
+              <select id="filter-chapter" class="win98-input">
+                <option value="">全部</option>
+              </select>
+            </label>
+          </div>
+
+          <!-- 狀態篩選 -->
+          <div class="toolbar-group">
+            <label class="small">
+              狀態
+              <select id="filter-status" class="win98-input">
+                <option value="">全部</option>
+                <option value="practiced">已練習</option>
+                <option value="unpracticed">未練習</option>
+              </select>
+            </label>
+          </div>
+
+          <!-- 搜尋 -->
+          <div class="toolbar-group">
+            <label class="small">
+              搜尋題目內文
+              <input type="text" id="filter-search" class="win98-input" placeholder="輸入關鍵字...">
+            </label>
+          </div>
+
+          <button id="btn-apply-filter" class="win98-button">套用篩選</button>
+          <button id="btn-reset-filter" class="win98-button">重設</button>
+        </div>
+
+        <!-- 練習模式 -->
+        <div class="toolbar mt-4">
+          <div class="toolbar-group">
+            <span class="label">隨機3題：</span>
+            <select id="random-mode" class="win98-input">
+              <option value="all">總題庫隨機</option>
+              <option value="chapter">指定章節隨機</option>
+              <option value="difficulty">指定難度隨機</option>
+              <option value="unpracticed">未練習隨機</option>
+            </select>
+          </div>
+
+          <!-- 章節選擇（章節隨機時顯示） -->
+          <div class="toolbar-group" id="random-chapter-group" style="display: none;">
+            <label class="small">
+              章節
+              <select id="random-chapter" class="win98-input">
+                <option value="">請選擇</option>
+              </select>
+            </label>
+          </div>
+
+          <!-- 難度選擇（難度隨機時顯示） -->
+          <div class="toolbar-group" id="random-difficulty-group" style="display: none;">
+            <label class="small">
+              難度
+              <select id="random-difficulty" class="win98-input">
+                <option value="1">1 星</option>
+                <option value="2">2 星</option>
+                <option value="3">3 星</option>
+                <option value="4">4 星</option>
+                <option value="5">5 星</option>
+              </select>
+            </label>
+          </div>
+
+          <button id="btn-random-3" class="win98-button">隨機3題</button>
+          <button id="btn-start-selected" class="win98-button">開始練習選中題目</button>
+        </div>
+
+        <!-- 顯示選項 -->
+        <div class="display-options mt-4">
+          <label class="small">
+            <input type="checkbox" id="show-image" checked>
+            顯示題目圖片
+          </label>
+          <label class="small">
+            <input type="checkbox" id="show-text" checked>
+            顯示題目文字
+          </label>
+          <span class="small ml-8">
+            已選 <span id="selected-count">0</span> 題
+          </span>
+        </div>
+
+        <!-- 題目表格 - 可滾動區域 -->
+        <div class="table-container">
+          <table id="questions-table" class="compact-table">
+            <thead>
+              <tr>
+                <th class="col-check"><input type="checkbox" id="chk-all"></th>
+                <th class="col-num">序號</th>
+                <th class="col-year">年分</th>
+                <th class="col-school">學校</th>
+                <th class="col-chapter">章節</th>
+                <th class="col-diff">難度</th>
+                <th class="col-image">題目圖片</th>
+                <th class="col-text">題目文字</th>
+                <th class="col-count">練習</th>
+                <th class="col-date">最近</th>
+                <th class="col-skip">跳過</th>
+              </tr>
+            </thead>
+            <tbody id="questions-tbody">
+              <!-- 動態生成 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ========== 頁面 2: 預測難度 ========== -->
+      <div id="page-predict" class="page">
+        <div class="section-title">預測難度（1-5星）</div>
+        
+        <!-- 進度顯示 -->
+        <div class="predict-progress">
+          第 <span id="predict-current">1</span> / <span id="predict-total">1</span> 題
+        </div>
+
+        <!-- 單題顯示區 -->
+        <div class="predict-single-view">
+          <!-- 題目資訊 -->
+          <div class="predict-info-bar">
+            <div>Q_ID: <strong id="predict-qid">-</strong></div>
+            <div><strong id="predict-meta">-</strong></div>
+          </div>
+
+          <!-- 題目圖片（大圖） -->
+          <div class="predict-image-container">
+            <img id="predict-image" src="" alt="題目圖片" onclick="enlargeImage(this.src)">
+          </div>
+
+          <!-- 評分區 -->
+          <div class="predict-rating-area">
+            <div class="predict-instruction">
+              請評估此題難度（按鍵盤 1-5 或點擊星星）
+            </div>
+            <div class="stars predict-stars" id="predict-stars">
+              <span class="star" data-value="1" onclick="predictSetDiff(1)">☆</span>
+              <span class="star" data-value="2" onclick="predictSetDiff(2)">☆</span>
+              <span class="star" data-value="3" onclick="predictSetDiff(3)">☆</span>
+              <span class="star" data-value="4" onclick="predictSetDiff(4)">☆</span>
+              <span class="star" data-value="5" onclick="predictSetDiff(5)">☆</span>
+            </div>
+            <div class="small mt-4">
+              按完數字鍵會自動跳下一題 | 方向鍵 ← → 切換題目
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-8">
+          <button id="btn-back-to-list" class="win98-button">回列表</button>
+          <button id="btn-start-practice" class="win98-button">開始正式刷題 (Enter)</button>
+        </div>
+      </div>
+
+      <!-- ========== 頁面 3: 正式刷題 ========== -->
+      <div id="page-practice" class="page">
+        <div class="section-title">正式刷題</div>
+
+        <!-- 題目資訊 -->
+        <div class="practice-header">
+          <div class="practice-info highlight">
+            第 <span id="current-num">1</span> / <span id="total-num">1</span> 題 | 
+            Q_ID: <span id="current-qid">-</span> | 
+            <span id="current-meta">-</span>
+          </div>
+          
+          <!-- 雙計時器 -->
+          <div class="timer-group">
+            <div class="timer-item">
+              <span class="label">總時間:</span>
+              <div class="timer-display" id="timer-total">00:00</div>
+            </div>
+            <div class="timer-item">
+              <span class="label">本題:</span>
+              <div class="timer-display" id="timer-single">00:00</div>
+            </div>
+            <button id="btn-timer-toggle" class="win98-button small">開始</button>
+            <button id="btn-timer-reset" class="win98-button small">重設</button>
+          </div>
+        </div>
+
+        <!-- 題目顯示 - 固定版面 -->
+        <div class="practice-layout">
+          <!-- 左側：題目圖片 -->
+          <div class="practice-left">
+            <div class="small mb-4">題目圖片（點擊放大）：</div>
+            <div class="image-frame">
+              <img id="practice-problem-img" class="problem-image" alt="題目圖片" onclick="enlargeImage(this.src)">
+            </div>
+          </div>
+
+          <!-- 右側：解答詳解 -->
+          <div class="practice-right">
+            <div class="small mb-4">解答 / 詳解：</div>
+            <div class="image-frame" id="answer-frame">
+              <div id="answer-placeholder" class="answer-placeholder">
+                按下按鈕顯示解答
+              </div>
+              <div id="answer-container" style="display: none;">
+                <img id="practice-answer-img" class="answer-image" alt="解答圖片" onclick="enlargeImage(this.src)">
+                <img id="practice-solution-img" class="solution-image mt-4" alt="詳解圖片" onclick="enlargeImage(this.src)">
+              </div>
+            </div>
+            <button id="btn-toggle-answer" class="win98-button mt-4">顯示解答/詳解 (A)</button>
+          </div>
+        </div>
+
+        <!-- 控制區域 -->
+        <div class="practice-controls">
+          <!-- 作答結果 -->
+          <div class="field-row">
+            <span class="label">作答結果：</span>
+            <button id="btn-correct" class="win98-button">✓ 正確 (C)</button>
+            <button id="btn-wrong" class="win98-button">✗ 錯誤 (X)</button>
+            <button id="btn-skip" class="win98-button">⊘ 跳過 (S)</button>
+            
+            <button id="btn-prev" class="win98-button ml-8">上一題 (←)</button>
+            <button id="btn-next" class="win98-button">下一題 (→)</button>
+          </div>
+
+          <!-- 難度評價 -->
+          <div class="field-row">
+            <span class="label">實際難度：</span>
+            <div class="stars" id="difficulty-stars">
+              <span class="star" data-value="1" onclick="setDifficulty(1)">☆</span>
+              <span class="star" data-value="2" onclick="setDifficulty(2)">☆</span>
+              <span class="star" data-value="3" onclick="setDifficulty(3)">☆</span>
+              <span class="star" data-value="4" onclick="setDifficulty(4)">☆</span>
+              <span class="star" data-value="5" onclick="setDifficulty(5)">☆</span>
+            </div>
+            <span class="small ml-4">（預測：<span id="predicted-diff">-</span> 顆星）（鍵盤 1-5）</span>
+          </div>
+
+          <!-- 筆記 -->
+          <div class="panel">
+            <div class="flex-row" style="justify-content: space-between; align-items: center;">
+              <div class="small">Notes（筆記）：</div>
+              <button id="btn-save-note" class="win98-button small">💾 存檔 (Ctrl+S)</button>
+            </div>
+            <textarea id="practice-notes" class="win98-input mt-4"></textarea>
+          </div>
+
+          <!-- 結束/離開 -->
+          <div class="mt-4">
+            <button id="btn-save-later" class="win98-button">💾 改天再戰</button>
+            <button id="btn-end-session" class="win98-button">✓ 結束本輪並看 Summary (Enter)</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== 頁面 4: Summary ========== -->
+      <div id="page-summary" class="page">
+        <div class="section-title">本輪 Summary</div>
+        <div id="summary-content" class="summary-panel">
+          <!-- 動態生成 -->
+        </div>
+
+        <div class="mt-8">
+          <button id="btn-summary-back" class="win98-button">回到題目列表</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 狀態列 -->
+    <div class="win98-statusbar">
+      <span id="status-left">就緒</span>
+      <span id="status-right">刷題機 V1</span>
+    </div>
+
+  </div>
+
+  <!-- 對話框：圖片預覽 -->
+  <div id="image-modal" class="modal" style="display: none;" onclick="closeImageModal()">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <span>圖片預覽</span>
+        <span class="modal-close" onclick="closeImageModal()">✕</span>
+      </div>
+      <div class="modal-body">
+        <img id="modal-image" src="" alt="預覽圖片">
       </div>
     </div>
   </div>
-  
-  <!-- 通用對話框 -->
-  <div id="dialog-modal" class="modal" style="display: none;">
-    <div class="window modal-window-small">
-      <div class="title-bar">
-        <div class="title-bar-text" id="dialog-title">訊息</div>
-        <div class="title-bar-controls">
-          <button aria-label="Close" onclick="closeDialog()"></button>
-        </div>
+
+  <!-- 對話框：通用訊息 -->
+  <div id="message-modal" class="modal" style="display: none;">
+    <div class="modal-content modal-small">
+      <div class="modal-header">
+        <span id="message-title">訊息</span>
+        <span class="modal-close" onclick="closeMessageModal()">✕</span>
       </div>
-      <div class="window-body">
-        <div class="dialog-content">
-          <div id="dialog-message"></div>
-        </div>
-        <div class="button-row center">
-          <button onclick="closeDialog()" id="dialog-ok-btn">確定</button>
-          <button onclick="closeDialog()" id="dialog-cancel-btn" style="display: none;">取消</button>
-        </div>
+      <div class="modal-body">
+        <div id="message-text"></div>
+      </div>
+      <div class="modal-footer">
+        <button id="message-ok" class="win98-button" onclick="closeMessageModal()">確定</button>
+        <button id="message-cancel" class="win98-button" onclick="closeMessageModal()" style="display: none;">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 對話框：繼續未完成練習 -->
+  <div id="continue-modal" class="modal" style="display: none;">
+    <div class="modal-content modal-small">
+      <div class="modal-header">
+        <span>發現未完成的練習</span>
+      </div>
+      <div class="modal-body">
+        <p>上次有未完成的練習會話，是否繼續？</p>
+        <p class="small mt-4">
+          題數：<span id="continue-count">0</span> 題<br>
+          已完成：<span id="continue-done">0</span> 題
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-continue-yes" class="win98-button">繼續練習</button>
+        <button id="btn-continue-no" class="win98-button">放棄並重新開始</button>
       </div>
     </div>
   </div>
