@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>系統測試</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f0f0f0;
+    }
+    .test-item {
+      background: white;
+      padding: 15px;
+      margin: 10px 0;
+      border-radius: 5px;
+      border-left: 5px solid #ccc;
+    }
+    .test-item.pass {
+      border-left-color: #4CAF50;
+    }
+    .test-item.fail {
+      border-left-color: #f44336;
+    }
+    .test-item h3 {
+      margin: 0 0 10px 0;
+    }
+    .status {
+      font-weight: bold;
+    }
+    .pass .status {
+      color: #4CAF50;
+    }
+    .fail .status {
+      color: #f44336;
+    }
+    button {
+      background: #2196F3;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 14px;
+      margin: 5px;
+    }
+    button:hover {
+      background: #0b7dda;
+    }
+    pre {
+      background: #f5f5f5;
+      padding: 10px;
+      border-radius: 3px;
+      overflow-x: auto;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔧 刷題機系統測試</h1>
+  <p>這個頁面會檢查系統是否能正常運作</p>
+
+  <div id="tests"></div>
+
+  <hr>
+  <h2>解決方案</h2>
+  <div id="solutions"></div>
+
+  <hr>
+  <h2>快速啟動本地伺服器</h2>
+  <div style="background: white; padding: 15px; border-radius: 5px;">
+    <p><strong>方法 1: Python (推薦)</strong></p>
+    <pre>cd 你的資料夾路徑
+python -m http.server 8000
+然後開啟: http://localhost:8000</pre>
+
+    <p><strong>方法 2: npx (如果有 Node.js)</strong></p>
+    <pre>cd 你的資料夾路徑
+npx serve
+或
+npx http-server</pre>
+  </div>
+
+  <script>
+    const tests = [
+      {
+        name: 'localStorage 支援',
+        test: () => {
+          try {
+            localStorage.setItem('test', 'test');
+            localStorage.removeItem('test');
+            return { pass: true, message: 'localStorage 可用' };
+          } catch (e) {
+            return { pass: false, message: 'localStorage 被禁用', error: e.message };
+          }
+        }
+      },
+      {
+        name: 'FileReader API 支援',
+        test: () => {
+          if (window.FileReader) {
+            return { pass: true, message: 'FileReader API 可用' };
+          } else {
+            return { pass: false, message: 'FileReader API 不支援' };
+          }
+        }
+      },
+      {
+        name: 'ES6 Modules 支援',
+        test: () => {
+          const script = document.createElement('script');
+          if ('noModule' in script) {
+            return { pass: true, message: 'ES6 Modules 支援' };
+          } else {
+            return { pass: false, message: 'ES6 Modules 不支援' };
+          }
+        }
+      },
+      {
+        name: '檢測協議',
+        test: () => {
+          const protocol = window.location.protocol;
+          if (protocol === 'http:' || protocol === 'https:') {
+            return { pass: true, message: `使用 ${protocol} 協議 ✅` };
+          } else {
+            return { 
+              pass: false, 
+              message: `使用 ${protocol} 協議 (建議使用 http:// 或 https://)`,
+              solution: '請使用本地伺服器執行系統'
+            };
+          }
+        }
+      },
+      {
+        name: 'Fetch API 支援',
+        test: () => {
+          if (window.fetch) {
+            return { pass: true, message: 'Fetch API 可用' };
+          } else {
+            return { pass: false, message: 'Fetch API 不支援' };
+          }
+        }
+      },
+      {
+        name: '瀏覽器版本檢查',
+        test: () => {
+          const ua = navigator.userAgent;
+          let browser = 'Unknown';
+          let version = 'Unknown';
+          
+          if (ua.includes('Chrome/')) {
+            browser = 'Chrome';
+            version = ua.match(/Chrome\/(\d+)/)?.[1];
+          } else if (ua.includes('Firefox/')) {
+            browser = 'Firefox';
+            version = ua.match(/Firefox\/(\d+)/)?.[1];
+          } else if (ua.includes('Safari/') && !ua.includes('Chrome')) {
+            browser = 'Safari';
+            version = ua.match(/Version\/(\d+)/)?.[1];
+          } else if (ua.includes('Edg/')) {
+            browser = 'Edge';
+            version = ua.match(/Edg\/(\d+)/)?.[1];
+          }
+          
+          const minVersions = {
+            'Chrome': 90,
+            'Firefox': 88,
+            'Safari': 14,
+            'Edge': 90
+          };
+          
+          const minVersion = minVersions[browser];
+          const pass = !minVersion || parseInt(version) >= minVersion;
+          
+          return {
+            pass,
+            message: `${browser} ${version}${pass ? ' ✅' : ' (建議更新)'}`
+          };
+        }
+      }
+    ];
+
+    function runTests() {
+      const testsDiv = document.getElementById('tests');
+      const solutionsDiv = document.getElementById('solutions');
+      testsDiv.innerHTML = '';
+      solutionsDiv.innerHTML = '';
+      
+      const solutions = [];
+      
+      tests.forEach(test => {
+        const result = test.test();
+        const div = document.createElement('div');
+        div.className = `test-item ${result.pass ? 'pass' : 'fail'}`;
+        
+        div.innerHTML = `
+          <h3>${test.name}</h3>
+          <div class="status">${result.pass ? '✅ 通過' : '❌ 失敗'}</div>
+          <div>${result.message}</div>
+          ${result.error ? `<pre>錯誤: ${result.error}</pre>` : ''}
+        `;
+        
+        testsDiv.appendChild(div);
+        
+        if (!result.pass && result.solution) {
+          solutions.push({
+            test: test.name,
+            solution: result.solution
+          });
+        }
+      });
+      
+      // 顯示解決方案
+      if (solutions.length > 0) {
+        solutions.forEach(s => {
+          const div = document.createElement('div');
+          div.style.cssText = 'background: #fff3cd; padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 5px solid #ffc107;';
+          div.innerHTML = `
+            <h3>⚠️ ${s.test}</h3>
+            <p>${s.solution}</p>
+          `;
+          solutionsDiv.appendChild(div);
+        });
+      } else {
+        solutionsDiv.innerHTML = '<div style="background: #d4edda; padding: 15px; border-radius: 5px; border-left: 5px solid #28a745;"><strong>🎉 所有測試通過！系統應該可以正常運作。</strong></div>';
+      }
+    }
+
+    // 執行測試
+    runTests();
+  </script>
+</body>
+</html>

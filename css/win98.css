@@ -1,0 +1,563 @@
+/* Windows 98 復古風格樣式表 */
+
+:root {
+  --win98-bg: #c0c0c0;
+  --win98-darkgray: #808080;
+  --win98-lightgray: #dfdfdf;
+  --win98-white: #ffffff;
+  --win98-black: #000000;
+  --win98-blue: #000080;
+  --win98-lightblue: #0000ff;
+  --win98-highlight: #000080;
+  --win98-highlight-text: #ffffff;
+  --win98-shadow-dark: #000000;
+  --win98-shadow-light: #ffffff;
+  --win98-button-face: #c0c0c0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 20px;
+  background: teal;
+  font-family: "MS Sans Serif", "Tahoma", sans-serif;
+  font-size: 11px;
+  color: var(--win98-black);
+}
+
+/* Windows 98 視窗容器 */
+.window {
+  background: var(--win98-bg);
+  border-top: 2px solid var(--win98-white);
+  border-left: 2px solid var(--win98-white);
+  border-right: 2px solid var(--win98-shadow-dark);
+  border-bottom: 2px solid var(--win98-shadow-dark);
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.5);
+  max-width: 1200px;
+  margin: 20px auto;
+}
+
+/* 標題列 */
+.title-bar {
+  background: linear-gradient(90deg, #000080 0%, #1084d0 100%);
+  padding: 3px 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  user-select: none;
+}
+
+.title-bar-text {
+  color: white;
+  font-weight: bold;
+  font-size: 11px;
+  letter-spacing: 0;
+  margin-left: 4px;
+}
+
+.title-bar-controls {
+  display: flex;
+  gap: 2px;
+}
+
+.title-bar-controls button {
+  width: 16px;
+  height: 14px;
+  padding: 0;
+  min-width: 0;
+  font-size: 8px;
+  font-weight: bold;
+  line-height: 1;
+}
+
+/* 視窗內容區 */
+.window-body {
+  padding: 12px;
+  background: var(--win98-bg);
+}
+
+/* 按鈕 */
+button, .button {
+  background: var(--win98-button-face);
+  border-top: 2px solid var(--win98-white);
+  border-left: 2px solid var(--win98-white);
+  border-right: 2px solid var(--win98-shadow-dark);
+  border-bottom: 2px solid var(--win98-shadow-dark);
+  padding: 4px 12px;
+  font-family: "MS Sans Serif", "Tahoma", sans-serif;
+  font-size: 11px;
+  cursor: pointer;
+  min-width: 75px;
+  outline: none;
+  position: relative;
+}
+
+button:active, .button:active {
+  border-top: 2px solid var(--win98-shadow-dark);
+  border-left: 2px solid var(--win98-shadow-dark);
+  border-right: 2px solid var(--win98-white);
+  border-bottom: 2px solid var(--win98-white);
+  padding: 5px 11px 3px 13px;
+}
+
+button:disabled {
+  color: var(--win98-darkgray);
+  text-shadow: 1px 1px 0 var(--win98-white);
+  cursor: not-allowed;
+}
+
+button:focus {
+  outline: 1px dotted var(--win98-black);
+  outline-offset: -4px;
+}
+
+/* 輸入框 */
+input[type="text"],
+input[type="number"],
+input[type="file"],
+select,
+textarea {
+  background: var(--win98-white);
+  border-top: 2px solid var(--win98-shadow-dark);
+  border-left: 2px solid var(--win98-shadow-dark);
+  border-right: 2px solid var(--win98-white);
+  border-bottom: 2px solid var(--win98-white);
+  padding: 3px 4px;
+  font-family: "MS Sans Serif", "Tahoma", sans-serif;
+  font-size: 11px;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+}
+
+/* 狀態列 */
+.status-bar {
+  background: var(--win98-bg);
+  border-top: 2px solid var(--win98-white);
+  padding: 3px 4px;
+  display: flex;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.status-bar-field {
+  border-top: 1px solid var(--win98-shadow-dark);
+  border-left: 1px solid var(--win98-shadow-dark);
+  border-right: 1px solid var(--win98-white);
+  border-bottom: 1px solid var(--win98-white);
+  padding: 2px 4px;
+  flex: 1;
+}
+
+/* 分隔線 */
+hr {
+  border: none;
+  border-top: 1px solid var(--win98-darkgray);
+  border-bottom: 1px solid var(--win98-white);
+  margin: 8px 0;
+}
+
+/* 群組框 */
+.field-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.field-row label {
+  min-width: 80px;
+}
+
+fieldset {
+  border-top: 2px solid var(--win98-white);
+  border-left: 2px solid var(--win98-white);
+  border-right: 2px solid var(--win98-shadow-dark);
+  border-bottom: 2px solid var(--win98-shadow-dark);
+  padding: 12px;
+  margin: 12px 0;
+}
+
+legend {
+  background: var(--win98-bg);
+  padding: 0 4px;
+  font-weight: bold;
+}
+
+/* 表格 */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--win98-white);
+  border-top: 2px solid var(--win98-shadow-dark);
+  border-left: 2px solid var(--win98-shadow-dark);
+  border-right: 2px solid var(--win98-white);
+  border-bottom: 2px solid var(--win98-white);
+}
+
+th {
+  background: var(--win98-bg);
+  border-right: 1px solid var(--win98-darkgray);
+  border-bottom: 2px solid var(--win98-white);
+  padding: 4px 8px;
+  text-align: left;
+  font-weight: bold;
+  cursor: pointer;
+  user-select: none;
+}
+
+th:active {
+  border-top: 1px solid var(--win98-shadow-dark);
+  border-left: 1px solid var(--win98-shadow-dark);
+}
+
+td {
+  border-right: 1px solid var(--win98-lightgray);
+  border-bottom: 1px solid var(--win98-lightgray);
+  padding: 4px 8px;
+}
+
+tr:hover {
+  background: var(--win98-highlight);
+  color: var(--win98-highlight-text);
+}
+
+tr.selected {
+  background: var(--win98-highlight);
+  color: var(--win98-highlight-text);
+}
+
+/* 標籤頁 */
+.tabs {
+  display: flex;
+  border-bottom: 2px solid var(--win98-darkgray);
+  margin-bottom: 12px;
+}
+
+.tab {
+  background: var(--win98-bg);
+  border-top: 2px solid var(--win98-white);
+  border-left: 2px solid var(--win98-white);
+  border-right: 2px solid var(--win98-shadow-dark);
+  padding: 6px 16px;
+  cursor: pointer;
+  margin-right: 2px;
+  user-select: none;
+  position: relative;
+  top: 2px;
+}
+
+.tab.active {
+  border-bottom: 2px solid var(--win98-bg);
+  z-index: 1;
+}
+
+.tab:not(.active) {
+  background: var(--win98-darkgray);
+  top: 4px;
+}
+
+/* 複選框 */
+input[type="checkbox"] {
+  width: 13px;
+  height: 13px;
+  appearance: none;
+  background: var(--win98-white);
+  border-top: 2px solid var(--win98-shadow-dark);
+  border-left: 2px solid var(--win98-shadow-dark);
+  border-right: 2px solid var(--win98-white);
+  border-bottom: 2px solid var(--win98-white);
+  cursor: pointer;
+  position: relative;
+}
+
+input[type="checkbox"]:checked::after {
+  content: '✓';
+  position: absolute;
+  top: -2px;
+  left: 1px;
+  font-size: 11px;
+  font-weight: bold;
+  color: var(--win98-black);
+}
+
+/* 星星評分 (pixel style) */
+.star-rating {
+  display: inline-flex;
+  gap: 4px;
+  font-size: 16px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.star {
+  color: var(--win98-darkgray);
+  text-shadow: 1px 1px 0 var(--win98-shadow-dark);
+}
+
+.star.filled {
+  color: #ffcc00;
+  text-shadow: 1px 1px 0 #cc9900;
+}
+
+.star:hover,
+.star.hover {
+  color: #ffdd44;
+}
+
+/* 進度條 */
+.progress-bar {
+  background: var(--win98-white);
+  border-top: 2px solid var(--win98-shadow-dark);
+  border-left: 2px solid var(--win98-shadow-dark);
+  border-right: 2px solid var(--win98-white);
+  border-bottom: 2px solid var(--win98-white);
+  height: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-fill {
+  background: var(--win98-blue);
+  height: 100%;
+  transition: width 0.3s ease;
+  position: relative;
+}
+
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 4px,
+    rgba(255, 255, 255, 0.2) 4px,
+    rgba(255, 255, 255, 0.2) 8px
+  );
+}
+
+/* 題目圖片容器 */
+.question-image-container {
+  background: var(--win98-white);
+  border-top: 2px solid var(--win98-shadow-dark);
+  border-left: 2px solid var(--win98-shadow-dark);
+  border-right: 2px solid var(--win98-white);
+  border-bottom: 2px solid var(--win98-white);
+  padding: 8px;
+  text-align: center;
+  margin: 12px 0;
+  max-height: 600px;
+  overflow: auto;
+}
+
+.question-image {
+  max-width: 100%;
+  height: auto;
+  cursor: zoom-in;
+}
+
+.question-image.zoomed {
+  cursor: zoom-out;
+  max-width: none;
+}
+
+/* 計時器顯示 */
+.timer {
+  font-family: "Courier New", monospace;
+  font-size: 18px;
+  font-weight: bold;
+  padding: 8px 16px;
+  background: var(--win98-black);
+  color: #00ff00;
+  border: 2px solid var(--win98-bg);
+  display: inline-block;
+  letter-spacing: 2px;
+}
+
+/* 按鈕組 */
+.button-group {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0;
+  flex-wrap: wrap;
+}
+
+.button-group.center {
+  justify-content: center;
+}
+
+.button-group.right {
+  justify-content: flex-end;
+}
+
+/* 筆記區域 */
+.notes-area {
+  background: #ffffcc;
+  border-top: 2px solid var(--win98-shadow-dark);
+  border-left: 2px solid var(--win98-shadow-dark);
+  border-right: 2px solid var(--win98-white);
+  border-bottom: 2px solid var(--win98-white);
+  padding: 8px;
+  margin: 12px 0;
+  min-height: 80px;
+  font-family: "Courier New", monospace;
+  font-size: 10px;
+}
+
+/* 統計卡片 */
+.stat-card {
+  background: var(--win98-white);
+  border-top: 2px solid var(--win98-white);
+  border-left: 2px solid var(--win98-white);
+  border-right: 2px solid var(--win98-shadow-dark);
+  border-bottom: 2px solid var(--win98-shadow-dark);
+  padding: 12px;
+  margin: 8px 0;
+}
+
+.stat-card h3 {
+  margin: 0 0 8px 0;
+  font-size: 12px;
+  color: var(--win98-blue);
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: bold;
+  color: var(--win98-black);
+}
+
+.stat-label {
+  font-size: 10px;
+  color: var(--win98-darkgray);
+  margin-top: 4px;
+}
+
+/* 熱力圖 */
+.heatmap {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  padding: 12px;
+  background: var(--win98-white);
+}
+
+.heatmap-cell {
+  aspect-ratio: 1;
+  border: 1px solid var(--win98-lightgray);
+  cursor: pointer;
+  position: relative;
+}
+
+.heatmap-cell.level-0 { background: #ebedf0; }
+.heatmap-cell.level-1 { background: #c6e48b; }
+.heatmap-cell.level-2 { background: #7bc96f; }
+.heatmap-cell.level-3 { background: #239a3b; }
+.heatmap-cell.level-4 { background: #196127; }
+
+.heatmap-cell:hover::after {
+  content: attr(data-date) '\A' attr(data-time);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--win98-black);
+  color: var(--win98-white);
+  padding: 4px 8px;
+  white-space: pre;
+  font-size: 9px;
+  z-index: 10;
+  border: 1px solid var(--win98-white);
+}
+
+/* 提示對話框 */
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.dialog {
+  background: var(--win98-bg);
+  border-top: 2px solid var(--win98-white);
+  border-left: 2px solid var(--win98-white);
+  border-right: 2px solid var(--win98-shadow-dark);
+  border-bottom: 2px solid var(--win98-shadow-dark);
+  min-width: 300px;
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.5);
+}
+
+.dialog-body {
+  padding: 24px;
+  text-align: center;
+}
+
+.dialog-icon {
+  font-size: 32px;
+  margin-bottom: 12px;
+}
+
+.dialog-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  padding: 12px;
+  border-top: 1px solid var(--win98-white);
+}
+
+/* 工具列 */
+.toolbar {
+  background: var(--win98-bg);
+  border-bottom: 2px solid var(--win98-darkgray);
+  padding: 4px;
+  display: flex;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+
+.toolbar button {
+  min-width: auto;
+  padding: 4px 8px;
+}
+
+/* 隱藏元素 */
+.hidden {
+  display: none !important;
+}
+
+/* 響應式調整 */
+@media (max-width: 768px) {
+  body {
+    padding: 8px;
+  }
+  
+  .window {
+    margin: 8px auto;
+  }
+  
+  .button-group {
+    flex-direction: column;
+  }
+  
+  button, .button {
+    width: 100%;
+  }
+}

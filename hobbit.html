@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>每日熱力圖 - 刷題機 V1</title>
+  <link rel="stylesheet" href="css/win98.css">
+  <style>
+    .calendar-header {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+      margin-bottom: 4px;
+      font-size: 10px;
+      font-weight: bold;
+      text-align: center;
+      color: var(--win98-darkgray);
+    }
+    
+    .month-grid {
+      margin-bottom: 24px;
+    }
+    
+    .month-title {
+      font-size: 12px;
+      font-weight: bold;
+      margin-bottom: 8px;
+      padding: 4px;
+      background: var(--win98-bg);
+      border: 1px solid var(--win98-darkgray);
+    }
+    
+    .stats-summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 8px;
+      margin: 12px 0;
+    }
+    
+    .mini-stat {
+      background: var(--win98-white);
+      border: 1px solid var(--win98-darkgray);
+      padding: 8px;
+      text-align: center;
+      font-size: 10px;
+    }
+    
+    .mini-stat-value {
+      font-size: 18px;
+      font-weight: bold;
+      color: var(--win98-blue);
+    }
+  </style>
+</head>
+<body>
+  <div class="window">
+    <div class="title-bar">
+      <div class="title-bar-text">刷題機 V1 - 每日練習熱力圖</div>
+      <div class="title-bar-controls">
+        <button aria-label="Minimize">_</button>
+        <button aria-label="Maximize">□</button>
+        <button aria-label="Close" onclick="window.close()">✕</button>
+      </div>
+    </div>
+
+    <div class="window-body">
+      <fieldset>
+        <legend>練習熱力圖</legend>
+        
+        <div style="text-align: center; margin-bottom: 16px;">
+          <p style="font-size: 11px; color: var(--win98-darkgray);">
+            顏色深淺代表每日練習時間的長短，點擊日期可查看詳細資訊
+          </p>
+        </div>
+
+        <!-- 圖例 -->
+        <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 16px; font-size: 10px;">
+          <span>少</span>
+          <div class="heatmap-cell level-0" style="width: 12px; height: 12px;"></div>
+          <div class="heatmap-cell level-1" style="width: 12px; height: 12px;"></div>
+          <div class="heatmap-cell level-2" style="width: 12px; height: 12px;"></div>
+          <div class="heatmap-cell level-3" style="width: 12px; height: 12px;"></div>
+          <div class="heatmap-cell level-4" style="width: 12px; height: 12px;"></div>
+          <span>多</span>
+        </div>
+
+        <!-- 月份選擇 -->
+        <div class="field-row" style="margin-bottom: 16px;">
+          <label>顯示月份:</label>
+          <select id="monthSelect" style="flex: 1;">
+            <!-- 月份選項將由 JS 填入 -->
+          </select>
+          <button id="prevMonthBtn">◀</button>
+          <button id="nextMonthBtn">▶</button>
+          <button id="todayBtn">今天</button>
+        </div>
+
+        <hr>
+
+        <!-- 熱力圖 -->
+        <div id="heatmapContainer">
+          <!-- 熱力圖將由 JS 填入 -->
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>本月統計</legend>
+        
+        <div class="stats-summary">
+          <div class="mini-stat">
+            <div class="mini-stat-value" id="monthDays">0</div>
+            <div>練習天數</div>
+          </div>
+          
+          <div class="mini-stat">
+            <div class="mini-stat-value" id="monthTotal">0</div>
+            <div>總題數</div>
+          </div>
+          
+          <div class="mini-stat">
+            <div class="mini-stat-value" id="monthTime">0</div>
+            <div>總時間(分)</div>
+          </div>
+          
+          <div class="mini-stat">
+            <div class="mini-stat-value" id="monthAvg">0</div>
+            <div>日均題數</div>
+          </div>
+          
+          <div class="mini-stat">
+            <div class="mini-stat-value" id="monthStreak">0</div>
+            <div>最長連續</div>
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>選中日期詳情</legend>
+        
+        <div id="dayDetail" style="background: var(--win98-white); padding: 12px; min-height: 80px;">
+          <p style="text-align: center; color: var(--win98-darkgray);">請點擊熱力圖中的日期查看詳情</p>
+        </div>
+      </fieldset>
+
+      <div class="button-group">
+        <button id="backBtn">
+          <span>◀</span> 返回
+        </button>
+        <button id="statsBtn">
+          <span>📊</span> 查看統計
+        </button>
+        <button id="exportBtn">
+          <span>💾</span> 匯出資料
+        </button>
+      </div>
+    </div>
+
+    <div class="status-bar">
+      <div class="status-bar-field" id="statusText">熱力圖已載入</div>
+      <div class="status-bar-field" id="statusTime"></div>
+    </div>
+  </div>
+
+  <script type="module" src="js/hobbit.js"></script>
+</body>
+</html>

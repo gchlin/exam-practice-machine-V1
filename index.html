@@ -1,214 +1,267 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-TW">
 <head>
-  <meta charset="UTF-8" />
-  <title>刷題機 V1 - Windows 98 風格</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>刷題機 V1 - Windows 98 Edition</title>
+  <link rel="stylesheet" href="css/win98.css">
 </head>
 <body>
-  <div class="win98-window">
-    <div class="win98-titlebar">
-      <div>刷題機 V1 - Windows 98 Edition</div>
-      <div class="win98-titlebar-buttons">
-        <div class="win98-titlebar-button"></div>
-        <div class="win98-titlebar-button"></div>
-        <div class="win98-titlebar-button"></div>
+  <div class="window">
+    <div class="title-bar">
+      <div class="title-bar-text">刷題機 V1 - 載入題庫</div>
+      <div class="title-bar-controls">
+        <button aria-label="Minimize">_</button>
+        <button aria-label="Maximize">□</button>
+        <button aria-label="Close">✕</button>
       </div>
     </div>
 
-    <div class="win98-menubar">
-      檔案(F) 編輯(E) 檢視(V) 工具(T) 說明(H)
-    </div>
-
-    <div class="win98-content">
-      <!-- ===== 頁面 0：載入資料 ===== -->
-      <div id="page-load" class="page active">
-        <div class="section-title">步驟 1：載入題庫 data.csv</div>
-        <div class="field-row">
-          <span class="label">選擇 data.csv：</span>
-          <input id="file-input" type="file" accept=".csv" />
-          <button id="btn-load-csv" class="win98-button">載入題庫</button>
-        </div>
-        <div class="small">
-          建議：用簡單伺服器開啟（例如 VSCode Live Server 或 <code>python -m http.server</code>），<br/>
-          並把題庫放在 <code>data/</code> 資料夾，CSV 裡圖片路徑寫成 <code>data/images/xxx.webp</code>。
-        </div>
-        <div id="load-status" class="mt-8 small"></div>
-      </div>
-
-      <!-- ===== 頁面 1：題目列表 ===== -->
-      <div id="page-list" class="page">
-        <div class="section-title">題目列表</div>
-
-        <div class="toolbar">
-          <div class="toolbar-group">
-            <span class="label">篩選：</span>
-            <label class="small">
-              年份：
-              <select id="filter-year" class="win98-input">
-                <option value="">全部</option>
-              </select>
-            </label>
-            <label class="small">
-              學校：
-              <select id="filter-school" class="win98-input">
-                <option value="">全部</option>
-              </select>
-            </label>
-            <label class="small">
-              範圍：
-              <select id="filter-chapter" class="win98-input">
-                <option value="">全部</option>
-              </select>
-            </label>
+    <div class="window-body">
+      <div id="loadingScreen">
+        <fieldset>
+          <legend>歡迎使用刷題機</legend>
+          
+          <div style="text-align: center; margin: 20px 0;">
+            <div style="font-size: 48px; margin-bottom: 16px;">📚</div>
+            <h2 style="margin: 0 0 8px 0;">Windows 98 復古風格刷題系統</h2>
+            <p style="color: var(--win98-darkgray);">讓我們開始您的學習之旅</p>
           </div>
 
-          <div class="toolbar-group">
-            <span class="label">排序：</span>
-            <select id="sort-key" class="win98-input">
-              <option value="Year">Year</option>
-              <option value="LastDate">LastDate</option>
-            </select>
+          <hr>
+
+          <div class="field-row">
+            <label for="dataFile">選擇題庫檔案 (data.csv):</label>
+            <input type="file" id="dataFile" accept=".csv" style="flex: 1;">
           </div>
 
-          <div class="toolbar-group">
-            <span class="label">刷題模式：</span>
-            <div class="radio-group small">
-              <label><input type="radio" name="mode" value="normal" checked /> 一般</label>
-              <label><input type="radio" name="mode" value="chapter" /> 同章節三題</label>
-              <label><input type="radio" name="mode" value="school" /> 同學校三題</label>
-              <label><input type="radio" name="mode" value="difficulty" /> 同難度三題</label>
+          <div class="field-row">
+            <label for="imagesFolder">題目圖片資料夾路徑:</label>
+            <input type="text" id="imagesFolder" value="./images/" style="flex: 1;">
+          </div>
+
+          <hr>
+
+          <div id="loadStatus" class="hidden" style="margin: 16px 0; padding: 12px; background: var(--win98-white);">
+            <div style="font-weight: bold; margin-bottom: 8px;">載入狀態:</div>
+            <div id="statusText">準備中...</div>
+            <div class="progress-bar" style="margin-top: 8px;">
+              <div class="progress-fill" id="progressFill" style="width: 0%;"></div>
             </div>
           </div>
 
-          <button id="btn-start-predict" class="win98-button">
-            開始預測難度
-          </button>
-
-          <button id="btn-export-logs" class="win98-button">
-            匯出所有 log
-          </button>
-        </div>
-
-        <table id="questions-table">
-          <thead>
-            <tr>
-              <th><input type="checkbox" id="chk-all" /></th>
-              <th>Q_ID</th>
-              <th>Year</th>
-              <th>School</th>
-              <th>Chapter</th>
-              <th>Difficulty</th>
-              <th>Predicted</th>
-              <th>LastDate</th>
-              <th>LastTime</th>
-              <th>Skipped</th>
-              <th>Image</th>
-              <th>Notes</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-
-        <div class="section-title mt-8">Hobbit Log（每日熱力圖）</div>
-        <div class="flex-row">
-          <div class="panel">
-            <div class="heatmap" id="heatmap"></div>
-            <div class="heat-legend">
-              <span class="small">顏色代表每日作答時間多寡</span><br/>
-              <span class="small">灰：0、淺綠：少、深綠：多</span>
-            </div>
+          <div class="button-group center">
+            <button id="loadBtn" disabled>
+              <span>▶</span> 載入題庫
+            </button>
+            <button id="demoBtn">
+              <span>🎮</span> 使用範例資料
+            </button>
           </div>
-          <div class="panel" style="flex:1;">
-            <div id="hobbit-summary" class="small"></div>
+        </fieldset>
+
+        <fieldset>
+          <legend>系統資訊</legend>
+          <div style="font-size: 10px; color: var(--win98-darkgray);">
+            <p><strong>版本:</strong> V1.0.0</p>
+            <p><strong>風格:</strong> Windows 98 Retro</p>
+            <p><strong>功能:</strong> 題庫管理 / 難度預測 / 練習追蹤 / 統計分析</p>
+            <p><strong>資料儲存:</strong> 使用瀏覽器 localStorage</p>
           </div>
-        </div>
+        </fieldset>
       </div>
 
-      <!-- ===== 頁面 2：預測難度 ===== -->
-      <div id="page-predict" class="page">
-        <div class="section-title">預測難度（星星 1–5）</div>
-        <div class="mb-4 small">
-          每題點選預測難度後，按下「開始正式刷題」。
-        </div>
-        <div id="predict-list"></div>
-
-        <div class="mt-8">
-          <button id="btn-back-to-list-from-predict" class="win98-button">
-            回列表
-          </button>
-          <button id="btn-start-practice" class="win98-button">
-            開始正式刷題
-          </button>
-        </div>
-      </div>
-
-      <!-- ===== 頁面 3：正式刷題 ===== -->
-      <div id="page-practice" class="page">
-        <div class="section-title">正式刷題</div>
-
-        <div class="field-row">
-          <div class="highlight" id="practice-info">題目資訊</div>
-          <div>
-            <span class="label">計時：</span>
-            <span id="timer" class="timer-display">00:00</span>
-            <button id="btn-timer-toggle" class="win98-button">開始</button>
-            <button id="btn-timer-reset" class="win98-button">重設</button>
+      <div id="continueScreen" class="hidden">
+        <fieldset>
+          <legend>發現未完成的練習</legend>
+          
+          <div style="text-align: center; margin: 20px 0;">
+            <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
+            <h3 style="margin: 0 0 8px 0;">您有未完成的練習會話</h3>
+            <p style="color: var(--win98-darkgray);">是否要繼續上次的練習?</p>
           </div>
-        </div>
 
-        <div class="flex-row mt-4">
-          <div class="panel" style="flex:2;">
-            <div class="small mb-4">題目圖片（可放大）：</div>
-            <img id="practice-problem-img" class="problem-image" alt="題目圖片" />
+          <hr>
+
+          <div id="sessionInfo" style="background: var(--win98-white); padding: 12px; margin: 12px 0;">
+            <!-- 會話資訊將由 JS 填入 -->
           </div>
-          <div class="panel" style="flex:1;">
-            <div class="small mb-4">解答 / 詳解：</div>
-            <img id="practice-answer-img" class="answer-image" alt="解答圖片" />
-            <div class="mt-4 small">
-              <button id="btn-toggle-answer" class="win98-button">顯示 / 隱藏 解答</button>
-              <div id="answer-status" class="small mt-4"></div>
-            </div>
+
+          <div class="button-group center">
+            <button id="continueBtn">
+              <span>✓</span> 繼續練習
+            </button>
+            <button id="newSessionBtn">
+              <span>✕</span> 開始新的練習
+            </button>
           </div>
-        </div>
-
-        <div class="mt-8 field-row">
-          <span class="label">作答結果：</span>
-          <button id="btn-correct" class="win98-button">正確</button>
-          <button id="btn-wrong" class="win98-button">錯誤</button>
-          <button id="btn-skip" class="win98-button">跳過</button>
-
-          <button id="btn-prev" class="win98-button">上一題</button>
-          <button id="btn-next" class="win98-button">下一題</button>
-        </div>
-
-        <div class="mt-4 panel">
-          <div class="small">Notes（筆記）：</div>
-          <textarea id="practice-notes" class="win98-input"></textarea>
-        </div>
-
-        <div class="mt-4">
-          <button id="btn-end-session" class="win98-button">結束本輪並看 Summary</button>
-        </div>
-      </div>
-
-      <!-- ===== 頁面 4：Summary ===== -->
-      <div id="page-summary" class="page">
-        <div class="section-title">本輪 Summary</div>
-        <div id="summary-content" class="small"></div>
-
-        <div class="mt-8">
-          <button id="btn-summary-back" class="win98-button">回到題目列表</button>
-        </div>
+        </fieldset>
       </div>
     </div>
 
-    <div class="win98-statusbar">
-      <span id="status-left">就緒</span>
-      <span id="status-right">刷題機 V1</span>
+    <div class="status-bar">
+      <div class="status-bar-field">準備就緒</div>
+      <div class="status-bar-field" id="statusTime"></div>
     </div>
   </div>
 
-  <script src="app.js"></script>
+  <script type="module">
+    import { dataManager } from './js/dataManager.js';
+    import { stateManager } from './js/stateManager.js';
+    import { showDialog, showConfirm } from './js/utils.js';
+
+    const dataFileInput = document.getElementById('dataFile');
+    const loadBtn = document.getElementById('loadBtn');
+    const demoBtn = document.getElementById('demoBtn');
+    const loadStatus = document.getElementById('loadStatus');
+    const statusText = document.getElementById('statusText');
+    const progressFill = document.getElementById('progressFill');
+    const loadingScreen = document.getElementById('loadingScreen');
+    const continueScreen = document.getElementById('continueScreen');
+    const sessionInfo = document.getElementById('sessionInfo');
+
+    // 更新時間
+    function updateTime() {
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString('zh-TW', { hour12: false });
+      document.getElementById('statusTime').textContent = timeStr;
+    }
+    updateTime();
+    setInterval(updateTime, 1000);
+
+    // 檔案選擇事件
+    dataFileInput.addEventListener('change', (e) => {
+      loadBtn.disabled = !e.target.files.length;
+    });
+
+    // 載入題庫按鈕
+    loadBtn.addEventListener('click', async () => {
+      const file = dataFileInput.files[0];
+      if (!file) return;
+
+      try {
+        loadStatus.classList.remove('hidden');
+        loadBtn.disabled = true;
+        demoBtn.disabled = true;
+
+        // 步驟 1: 載入題庫
+        statusText.textContent = '正在載入題庫...';
+        progressFill.style.width = '25%';
+        await dataManager.loadQuestions(file);
+
+        // 步驟 2: 載入練習紀錄
+        statusText.textContent = '正在載入練習紀錄...';
+        progressFill.style.width = '50%';
+        await dataManager.loadFromLocalStorage();
+
+        // 步驟 3: 檢查未完成會話
+        statusText.textContent = '檢查未完成的會話...';
+        progressFill.style.width = '75%';
+        
+        const hasUnfinished = stateManager.hasUnfinishedSession();
+        
+        // 步驟 4: 完成
+        statusText.textContent = '載入完成!';
+        progressFill.style.width = '100%';
+
+        setTimeout(() => {
+          if (hasUnfinished) {
+            showContinueScreen();
+          } else {
+            goToList();
+          }
+        }, 500);
+
+      } catch (error) {
+        console.error('載入失敗:', error);
+        await showDialog('錯誤', '載入題庫失敗，請確認檔案格式是否正確。');
+        loadBtn.disabled = false;
+        demoBtn.disabled = false;
+        loadStatus.classList.add('hidden');
+      }
+    });
+
+    // 使用範例資料
+    demoBtn.addEventListener('click', async () => {
+      try {
+        loadStatus.classList.remove('hidden');
+        loadBtn.disabled = true;
+        demoBtn.disabled = true;
+
+        statusText.textContent = '正在載入範例資料...';
+        progressFill.style.width = '25%';
+        
+        // 載入上傳的 data.csv
+        await dataManager.loadQuestions('./data.csv');
+        
+        progressFill.style.width = '50%';
+        await dataManager.loadFromLocalStorage();
+
+        statusText.textContent = '載入完成!';
+        progressFill.style.width = '100%';
+
+        setTimeout(() => {
+          const hasUnfinished = stateManager.hasUnfinishedSession();
+          if (hasUnfinished) {
+            showContinueScreen();
+          } else {
+            goToList();
+          }
+        }, 500);
+
+      } catch (error) {
+        console.error('載入範例資料失敗:', error);
+        await showDialog('錯誤', '找不到範例資料檔案 (data.csv)，請先上傳題庫檔案。');
+        loadBtn.disabled = false;
+        demoBtn.disabled = false;
+        loadStatus.classList.add('hidden');
+      }
+    });
+
+    // 顯示繼續畫面
+    function showContinueScreen() {
+      const session = stateManager.currentSession;
+      const progress = stateManager.getProgress();
+      
+      sessionInfo.innerHTML = `
+        <div><strong>模式:</strong> ${getModeName(session.mode)}</div>
+        <div><strong>進度:</strong> ${progress.current} / ${progress.total} (${progress.percentage}%)</div>
+        <div><strong>儲存時間:</strong> ${new Date(session.startTime).toLocaleString('zh-TW')}</div>
+      `;
+      
+      loadingScreen.classList.add('hidden');
+      continueScreen.classList.remove('hidden');
+    }
+
+    // 繼續按鈕
+    document.getElementById('continueBtn').addEventListener('click', () => {
+      window.location.href = 'practice.html';
+    });
+
+    // 新會話按鈕
+    document.getElementById('newSessionBtn').addEventListener('click', async () => {
+      const confirm = await showConfirm('確認', '這將清除未完成的練習進度，確定要開始新的練習嗎?');
+      if (confirm) {
+        stateManager.clearSession();
+        goToList();
+      }
+    });
+
+    // 前往列表頁
+    function goToList() {
+      window.location.href = 'list.html';
+    }
+
+    // 取得模式名稱
+    function getModeName(mode) {
+      const names = {
+        'normal': '一般模式',
+        'same-chapter': '同章節模式',
+        'same-school': '同學校模式',
+        'same-difficulty': '同難度模式'
+      };
+      return names[mode] || mode;
+    }
+  </script>
 </body>
 </html>
