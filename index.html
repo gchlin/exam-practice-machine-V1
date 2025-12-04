@@ -31,8 +31,21 @@
           <hr>
 
           <div class="field-row">
-            <label for="dataFile">選擇題庫檔案 (data.csv):</label>
-            <input type="file" id="dataFile" accept=".csv" style="flex: 1;">
+            <label style="min-width: 120px;">
+              <input type="radio" name="loadMode" id="modeOnline" value="online" checked>
+              線上題庫
+            </label>
+            <span style="flex: 1; font-size: 10px; color: var(--win98-darkgray);">
+              使用已上傳到伺服器的題庫檔案
+            </span>
+          </div>
+
+          <div class="field-row">
+            <label style="min-width: 120px;">
+              <input type="radio" name="loadMode" id="modeLocal" value="local">
+              本地檔案
+            </label>
+            <input type="file" id="dataFile" accept=".csv" style="flex: 1;" disabled>
           </div>
 
           <div class="field-row">
@@ -51,11 +64,8 @@
           </div>
 
           <div class="button-group center">
-            <button id="loadBtn" disabled>
-              <span>▶</span> 載入題庫
-            </button>
-            <button id="demoBtn">
-              <span>🎮</span> 使用範例資料
+            <button id="loadBtn">
+              <span>▶</span> 開始使用
             </button>
           </div>
         </fieldset>
@@ -112,13 +122,14 @@
 
     const dataFileInput = document.getElementById('dataFile');
     const loadBtn = document.getElementById('loadBtn');
-    const demoBtn = document.getElementById('demoBtn');
     const loadStatus = document.getElementById('loadStatus');
     const statusText = document.getElementById('statusText');
     const progressFill = document.getElementById('progressFill');
     const loadingScreen = document.getElementById('loadingScreen');
     const continueScreen = document.getElementById('continueScreen');
     const sessionInfo = document.getElementById('sessionInfo');
+    const modeOnline = document.getElementById('modeOnline');
+    const modeLocal = document.getElementById('modeLocal');
 
     // 更新時間
     function updateTime() {
@@ -129,16 +140,47 @@
     updateTime();
     setInterval(updateTime, 1000);
 
+    // 模式切換
+    function updateLoadMode() {
+      const isLocal = modeLocal.checked;
+      dataFileInput.disabled = !isLocal;
+      loadBtn.disabled = isLocal && !dataFileInput.files.length;
+      
+      if (!isLocal) {
+        loadBtn.disabled = false;
+      }
+    }
+
+    modeOnline.addEventListener('change', updateLoadMode);
+    modeLocal.addEventListener('change', updateLoadMode);
+
     // 檔案選擇事件
     dataFileInput.addEventListener('change', (e) => {
-      loadBtn.disabled = !e.target.files.length;
+      if (modeLocal.checked) {
+        loadBtn.disabled = !e.target.files.length;
+      }
     });
+
+    // 初始化按鈕狀態
+    updateLoadMode();
 
     // 載入題庫按鈕
     loadBtn.addEventListener('click', async () => {
-      const file = dataFileInput.files[0];
-      if (!file) return;
+      const isLocal = modeLocal.checked;
+      
+      if (isLocal) {
+        const file = dataFileInput.files[0];
+        if (!file) return;
+        
+        await loadQuestionBank(file);
+      } else {
+        // 載入線上題庫
+        await loadQuestionBank('./data.csv');
+      }
+    });
 
+    // 通用載入函數
+    async function loadQuestionBank(source) {
       try {
         loadStatus.classList.remove('hidden');
         loadBtn.disabled = true;
@@ -147,7 +189,7 @@
         // 步驟 1: 載入題庫
         statusText.textContent = '正在載入題庫...';
         progressFill.style.width = '25%';
-        await dataManager.loadQuestions(file);
+        await dataManager.loadQuestions(source);
 
         // 步驟 2: 載入練習紀錄
         statusText.textContent = '正在載入練習紀錄...';
@@ -176,47 +218,9 @@
         console.error('載入失敗:', error);
         await showDialog('錯誤', '載入題庫失敗，請確認檔案格式是否正確。');
         loadBtn.disabled = false;
-        demoBtn.disabled = false;
         loadStatus.classList.add('hidden');
       }
-    });
-
-    // 使用範例資料
-    demoBtn.addEventListener('click', async () => {
-      try {
-        loadStatus.classList.remove('hidden');
-        loadBtn.disabled = true;
-        demoBtn.disabled = true;
-
-        statusText.textContent = '正在載入範例資料...';
-        progressFill.style.width = '25%';
-        
-        // 載入上傳的 data.csv
-        await dataManager.loadQuestions('./data.csv');
-        
-        progressFill.style.width = '50%';
-        await dataManager.loadFromLocalStorage();
-
-        statusText.textContent = '載入完成!';
-        progressFill.style.width = '100%';
-
-        setTimeout(() => {
-          const hasUnfinished = stateManager.hasUnfinishedSession();
-          if (hasUnfinished) {
-            showContinueScreen();
-          } else {
-            goToList();
-          }
-        }, 500);
-
-      } catch (error) {
-        console.error('載入範例資料失敗:', error);
-        await showDialog('錯誤', '找不到範例資料檔案 (data.csv)，請先上傳題庫檔案。');
-        loadBtn.disabled = false;
-        demoBtn.disabled = false;
-        loadStatus.classList.add('hidden');
-      }
-    });
+    }
 
     // 顯示繼續畫面
     function showContinueScreen() {
