@@ -164,6 +164,38 @@
     // 初始化按鈕狀態
     updateLoadMode();
 
+    // 檢查是否在本地環境
+    function checkEnvironment() {
+      const protocol = window.location.protocol;
+      
+      if (protocol === 'file:') {
+        // 本地環境，建議使用本地模式或本地伺服器
+        const warning = document.createElement('div');
+        warning.style.cssText = 'background: #fff3cd; border: 2px solid #ffc107; padding: 12px; margin: 12px 0; border-radius: 4px;';
+        warning.innerHTML = `
+          <div style="font-weight: bold; margin-bottom: 8px;">⚠️ 偵測到本地環境</div>
+          <div style="font-size: 10px;">
+            <p style="margin: 4px 0;">您正在使用 file:// 協議開啟，線上模式可能無法正常運作。</p>
+            <p style="margin: 4px 0;"><strong>建議方案：</strong></p>
+            <ul style="margin: 4px 0 4px 16px; padding: 0;">
+              <li>使用「本地檔案」模式上傳 data.csv</li>
+              <li>或使用本地伺服器：<code style="background: #f5f5f5; padding: 2px 4px;">python -m http.server 8000</code></li>
+              <li>或部署到 GitHub Pages</li>
+            </ul>
+          </div>
+        `;
+        
+        document.querySelector('.window-body').insertBefore(warning, document.querySelector('fieldset'));
+        
+        // 自動切換到本地模式
+        modeLocal.checked = true;
+        updateLoadMode();
+      }
+    }
+
+    // 執行環境檢查
+    checkEnvironment();
+
     // 載入題庫按鈕
     loadBtn.addEventListener('click', async () => {
       const isLocal = modeLocal.checked;
@@ -216,7 +248,30 @@
 
       } catch (error) {
         console.error('載入失敗:', error);
-        await showDialog('錯誤', '載入題庫失敗，請確認檔案格式是否正確。');
+        
+        let errorMessage = '載入題庫失敗。\n\n';
+        
+        if (window.location.protocol === 'file:') {
+          errorMessage += '您正在使用本地檔案系統 (file://)。\n\n';
+          errorMessage += '解決方案：\n';
+          errorMessage += '1. 切換到「本地檔案」模式並上傳 CSV\n';
+          errorMessage += '2. 或使用本地伺服器：\n';
+          errorMessage += '   python -m http.server 8000\n';
+          errorMessage += '3. 或部署到 GitHub Pages';
+        } else if (error.message && error.message.includes('404')) {
+          errorMessage += '找不到 data.csv 檔案。\n\n';
+          errorMessage += '請確認：\n';
+          errorMessage += '1. data.csv 已上傳到伺服器\n';
+          errorMessage += '2. 檔案路徑正確\n';
+          errorMessage += '3. 檔名大小寫一致';
+        } else {
+          errorMessage += '錯誤詳情：' + error.message + '\n\n';
+          errorMessage += '請檢查：\n';
+          errorMessage += '1. 檔案格式是否正確 (UTF-8 編碼)\n';
+          errorMessage += '2. CSV 格式是否符合規範';
+        }
+        
+        await showDialog('錯誤', errorMessage);
         loadBtn.disabled = false;
         loadStatus.classList.add('hidden');
       }
