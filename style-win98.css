@@ -914,20 +914,145 @@ body.compact-mode .win98-content {
   padding: 8px;
 }
 
+/* ==================== 手機專用固定操作列 ==================== */
+.mobile-action-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to top, #c0c0c0 0%, #d0d0d0 100%);
+  border-top: 2px solid #fff;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.2);
+  padding: 8px;
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mobile-quick-actions {
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr;
+  gap: 6px;
+}
+
+.mobile-main-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.mobile-difficulty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 4px;
+}
+
+.mobile-label {
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.mobile-btn {
+  border: 2px outset #fff;
+  background: #c0c0c0;
+  padding: 14px 10px;
+  font-size: 15px;
+  font-weight: bold;
+  cursor: pointer;
+  font-family: inherit;
+  min-height: 52px;
+  transition: all 0.1s;
+}
+
+.mobile-btn:active {
+  border: 2px inset #808080;
+  padding: 15px 9px 13px 11px;
+  transform: scale(0.98);
+}
+
+.mobile-btn-primary {
+  background: #0000aa;
+  color: #fff;
+  font-size: 14px;
+}
+
+.mobile-btn-secondary {
+  background: #c0c0c0;
+  font-size: 18px;
+}
+
+.mobile-btn-correct {
+  background: #00aa00;
+  color: #fff;
+}
+
+.mobile-btn-wrong {
+  background: #aa0000;
+  color: #fff;
+}
+
+.mobile-btn-skip {
+  background: #808080;
+  color: #fff;
+}
+
+.mobile-stars {
+  display: flex;
+  gap: 6px;
+}
+
+.mobile-star {
+  width: 42px;
+  height: 42px;
+  border: 2px outset #fff;
+  background: #e0e0e0;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  color: #808080;
+}
+
+.mobile-star:active {
+  border: 2px inset #808080;
+  transform: scale(0.95);
+}
+
+.mobile-star.active {
+  background: #ffff00;
+  color: #000;
+  border: 2px inset #808080;
+}
+
+/* 手機模式時調整練習頁面底部留白 */
+body.mobile-mode #page-practice {
+  padding-bottom: 200px;
+}
+
+body.mobile-mode .practice-controls {
+  display: none;
+}
+
 /* ==================== 響應式 ==================== */
 @media (max-width: 1200px) {
   .win98-window {
     max-width: 100%;
   }
-  
+
   .table-container {
     max-height: 300px;
   }
-  
+
   .practice-layout {
     flex-direction: column;
   }
-  
+
   .practice-left,
   .practice-right {
     flex: 1;
@@ -1068,19 +1193,36 @@ body.compact-mode .win98-content {
     font-size: 14px;
   }
   
-  /* 預測星星 */
-  .predict-stars .star {
-    width: 34px;
-    height: 34px;
-    font-size: 26px;
-    line-height: 34px;
+  /* 預測星星 - 加大觸控區域 */
+  .predict-stars {
+    gap: 12px !important;
   }
-  
+
+  .predict-stars .star {
+    width: 50px !important;
+    height: 50px !important;
+    font-size: 32px !important;
+    line-height: 50px !important;
+    border: 2px solid #000 !important;
+  }
+
+  .predict-instruction {
+    font-size: 15px !important;
+    margin-bottom: 16px !important;
+  }
+
   /* 練習星星 */
   .stars .star {
     font-size: 22px;
     width: 26px;
     height: 26px;
+  }
+
+  /* 預測頁面按鈕放大 */
+  #page-predict button {
+    padding: 14px 18px;
+    font-size: 15px;
+    min-height: 48px;
   }
   
   /* 欄位行 */

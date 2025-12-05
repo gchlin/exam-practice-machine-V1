@@ -127,6 +127,123 @@ function bindEvents() {
   
   // 鍵盤快捷鍵
   document.addEventListener('keydown', handleKeyboard);
+
+  // 手機模式初始化
+  initMobileMode();
+}
+
+// ==================== 手機模式 ====================
+
+function initMobileMode() {
+  // 自動偵測手機裝置
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
+
+  if (isMobile) {
+    document.body.classList.add('mobile-mode');
+    console.log('手機模式已啟用');
+  }
+
+  // 綁定手機操作列事件
+  bindMobileEvents();
+
+  // 監聽視窗大小變化
+  window.addEventListener('resize', () => {
+    const shouldBeMobile = window.innerWidth < 768;
+    if (shouldBeMobile && !document.body.classList.contains('mobile-mode')) {
+      document.body.classList.add('mobile-mode');
+    } else if (!shouldBeMobile && document.body.classList.contains('mobile-mode') && !(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent))) {
+      document.body.classList.remove('mobile-mode');
+    }
+    updateMobileBarVisibility();
+  });
+}
+
+function bindMobileEvents() {
+  // 快速操作
+  const mobilePrev = document.getElementById('mobile-prev');
+  const mobileNext = document.getElementById('mobile-next');
+  const mobileToggleAnswer = document.getElementById('mobile-toggle-answer');
+
+  if (mobilePrev) mobilePrev.addEventListener('click', prevQuestion);
+  if (mobileNext) mobileNext.addEventListener('click', nextQuestion);
+  if (mobileToggleAnswer) mobileToggleAnswer.addEventListener('click', toggleAnswer);
+
+  // 主要作答按鈕
+  const mobileCorrect = document.getElementById('mobile-correct');
+  const mobileWrong = document.getElementById('mobile-wrong');
+  const mobileSkip = document.getElementById('mobile-skip');
+
+  if (mobileCorrect) mobileCorrect.addEventListener('click', () => recordResult('Correct'));
+  if (mobileWrong) mobileWrong.addEventListener('click', () => recordResult('Incorrect'));
+  if (mobileSkip) mobileSkip.addEventListener('click', () => recordResult('Skipped'));
+
+  // 難度評分星星
+  const mobileStars = document.querySelectorAll('.mobile-star');
+  mobileStars.forEach(star => {
+    star.addEventListener('click', () => {
+      const value = parseInt(star.getAttribute('data-value'));
+      setDifficulty(value);
+      // 更新手機星星狀態
+      updateMobileStars(value);
+    });
+  });
+
+  // 手勢操作 - 左右滑動切換題目
+  let touchStartX = 0;
+  let touchEndX = 0;
+
+  const practiceLayout = document.querySelector('.practice-layout');
+  if (practiceLayout) {
+    practiceLayout.addEventListener('touchstart', (e) => {
+      touchStartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+
+    practiceLayout.addEventListener('touchend', (e) => {
+      touchEndX = e.changedTouches[0].screenX;
+      handleSwipe();
+    }, { passive: true });
+  }
+
+  function handleSwipe() {
+    const swipeThreshold = 50; // 最小滑動距離
+    if (currentPage !== 'practice') return;
+
+    if (touchEndX < touchStartX - swipeThreshold) {
+      // 向左滑 = 下一題
+      nextQuestion();
+    }
+
+    if (touchEndX > touchStartX + swipeThreshold) {
+      // 向右滑 = 上一題
+      prevQuestion();
+    }
+  }
+}
+
+function updateMobileBarVisibility() {
+  const mobileBar = document.getElementById('mobile-action-bar');
+  if (!mobileBar) return;
+
+  const isMobileMode = document.body.classList.contains('mobile-mode');
+  const isPracticePage = currentPage === 'practice';
+
+  if (isMobileMode && isPracticePage) {
+    mobileBar.style.display = 'flex';
+  } else {
+    mobileBar.style.display = 'none';
+  }
+}
+
+function updateMobileStars(difficulty) {
+  const mobileStars = document.querySelectorAll('.mobile-star');
+  mobileStars.forEach(star => {
+    const value = parseInt(star.getAttribute('data-value'));
+    if (value <= difficulty) {
+      star.classList.add('active');
+    } else {
+      star.classList.remove('active');
+    }
+  });
 }
 
 // ==================== LocalStorage 管理 ====================
@@ -730,21 +847,34 @@ function displayQuestion(index) {
   
   // 更新單題計時器顯示
   updateSingleTimerDisplay();
+
+  // 更新手機操作列
+  updateMobileBarVisibility();
+  updateMobileStars(0);
+
+  // 更新手機解答按鈕文字
+  const mobileToggleBtn = document.getElementById('mobile-toggle-answer');
+  if (mobileToggleBtn) {
+    mobileToggleBtn.textContent = '顯示解答';
+  }
 }
 
 function toggleAnswer() {
   const container = document.getElementById('answer-container');
   const placeholder = document.getElementById('answer-placeholder');
   const btn = document.getElementById('btn-toggle-answer');
-  
+  const mobileBtn = document.getElementById('mobile-toggle-answer');
+
   if (container.style.display === 'none') {
     container.style.display = 'block';
     placeholder.style.display = 'none';
     btn.textContent = '隱藏解答/詳解 (A)';
+    if (mobileBtn) mobileBtn.textContent = '隱藏解答';
   } else {
     container.style.display = 'none';
     placeholder.style.display = 'block';
     btn.textContent = '顯示解答/詳解 (A)';
+    if (mobileBtn) mobileBtn.textContent = '顯示解答';
   }
 }
 
@@ -814,6 +944,7 @@ function nextQuestion() {
 function setDifficulty(value) {
   currentDifficulty = value;
   updateDifficultyStars(value);
+  updateMobileStars(value);
 }
 
 function updateDifficultyStars(value) {
