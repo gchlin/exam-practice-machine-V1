@@ -92,11 +92,15 @@ function bindEvents() {
   document.getElementById('show-image').addEventListener('change', toggleImageColumn);
   document.getElementById('show-text').addEventListener('change', toggleTextColumn);
   
+  // 雲端同步
+  document.getElementById('btn-sync-cloud').addEventListener('click', syncToCloud);
+  
   // 重新載入題庫
   document.getElementById('btn-reload-questions').addEventListener('click', reloadQuestions);
   
-  // 匯出紀錄
+  // 匯出/匯入紀錄
   document.getElementById('btn-export-logs').addEventListener('click', exportLogs);
+  document.getElementById('btn-import-logs').addEventListener('click', importLogs);
   
   // 預測頁面
   document.getElementById('btn-back-to-list').addEventListener('click', () => showPage('list'));
@@ -1251,11 +1255,52 @@ function closeImageModal() {
 // ==================== 匯出資料 ====================
 
 function exportLogs() {
+  // 顯示匯出選項
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.style.display = 'flex';
+  modal.innerHTML = `
+    <div class="modal-content">
+      <div class="modal-header">📤 匯出紀錄</div>
+      <div class="modal-body">
+        <p>選擇匯出格式：</p>
+        <button class="win98-button" style="width:100%; margin:8px 0;" onclick="this.closest('.modal').dataset.format='json'">
+          📄 JSON 格式<br>
+          <small>可以匯入到其他裝置（推薦）</small>
+        </button>
+        <button class="win98-button" style="width:100%; margin:8px 0;" onclick="this.closest('.modal').dataset.format='csv'">
+          📊 CSV 格式<br>
+          <small>可以用 Excel 開啟</small>
+        </button>
+      </div>
+      <div class="modal-footer">
+        <button class="win98-button" onclick="this.closest('.modal').remove()">取消</button>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  modal.querySelectorAll('.win98-button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const format = modal.dataset.format;
+      if (format === 'json') {
+        exportJSON();
+      } else if (format === 'csv') {
+        exportCSV();
+      }
+      modal.remove();
+    });
+  });
+}
+
+function exportJSON() {
   const data = {
     practiceLog: practiceLog,
     predictLog: predictLog,
     hobbitLog: hobbitLog,
-    exportDate: new Date().toISOString()
+    exportDate: new Date().toISOString(),
+    version: '2.0'
   };
   
   const jsonStr = JSON.stringify(data, null, 2);
@@ -1268,7 +1313,91 @@ function exportLogs() {
   a.click();
   
   URL.revokeObjectURL(url);
-  showMessage('成功', '紀錄已匯出！');
+  showMessage('匯出成功', '已匯出 JSON 檔案\n\n可以傳到其他裝置並匯入');
+}
+
+function exportCSV() {
+  if (practiceLog.length === 0) {
+    showMessage('提示', '尚無練習記錄');
+    return;
+  }
+  
+  // CSV 標題
+  let csv = 'Date,Q_ID,Result,TimeSeconds,ActualDifficulty,Notes\n';
+  
+  // 資料行
+  practiceLog.forEach(log => {
+    csv += `${log.Date},${log.Q_ID},${log.Result},${log.TimeSeconds},${log.ActualDifficulty},"${(log.Notes || '').replace(/"/g, '""')}"\n`;
+  });
+  
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `shuatiji-logs-${formatDateForFilename(new Date())}.csv`;
+  a.click();
+  
+  URL.revokeObjectURL(url);
+  showMessage('匯出成功', '已匯出 CSV 檔案\n\n可以用 Excel 開啟分析');
+}
+
+function importLogs() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      
+      // 驗證資料格式
+      if (!data.practiceLog || !Array.isArray(data.practiceLog)) {
+        throw new Error('檔案格式不正確');
+      }
+      
+      // 詢問是否覆蓋
+      const count = data.practiceLog.length;
+      if (practiceLog.length > 0) {
+        if (!confirm(`本地有 ${practiceLog.length} 筆記錄\n檔案有 ${count} 筆記錄\n\n確定要匯入並合併嗎？`)) {
+          return;
+        }
+      }
+      
+      // 合併資料（避免重複）
+      const existingKeys = new Set(practiceLog.map(log => `${log.Date}-${log.Q_ID}-${log.TimeSeconds}`));
+      let addedCount = 0;
+      
+      data.practiceLog.forEach(log => {
+        const key = `${log.Date}-${log.Q_ID}-${log.TimeSeconds}`;
+        if (!existingKeys.has(key)) {
+          practiceLog.push(log);
+          addedCount++;
+        }
+      });
+      
+      // 儲存
+      saveToLocalStorage();
+      
+      // 重新渲染
+      if (currentPage === 'list') {
+        renderQuestionList();
+        renderHobbitLog();
+      }
+      
+      showMessage('匯入成功', `已匯入 ${addedCount} 筆新記錄\n（跳過 ${count - addedCount} 筆重複記錄）`);
+      
+    } catch (error) {
+      console.error('匯入失敗:', error);
+      showMessage('匯入失敗', error.message);
+    }
+  };
+  
+  input.click();
 }
 
 function formatDateForFilename(date) {
@@ -1387,6 +1516,13 @@ function handleKeyboard(e) {
 function loadTheme() {
   const savedTheme = localStorage.getItem('theme') || 'win98';
   switchTheme(savedTheme);
+  
+  // 載入簡潔模式設定
+  const compactMode = localStorage.getItem('compactMode') === 'true';
+  if (compactMode) {
+    document.body.classList.add('compact-mode');
+    document.getElementById('theme-compact')?.classList.add('active');
+  }
 }
 
 function switchTheme(theme) {
@@ -1395,12 +1531,295 @@ function switchTheme(theme) {
   
   // 更新按鈕狀態
   document.querySelectorAll('.theme-btn').forEach(btn => {
+    if (btn.id === 'theme-compact') return; // 不影響簡潔模式按鈕
     btn.classList.remove('active');
   });
   document.getElementById(`theme-${theme}`).classList.add('active');
   
   // 儲存選擇
   localStorage.setItem('theme', theme);
+}
+
+function toggleCompactMode() {
+  const isCompact = document.body.classList.toggle('compact-mode');
+  const btn = document.getElementById('theme-compact');
+  
+  if (isCompact) {
+    btn.classList.add('active');
+    showMessage('簡潔模式', '已開啟手機簡潔模式\n\n隱藏：\n- 選單列\n- 篩選工具\n- 熱力圖\n- 次要欄位');
+  } else {
+    btn.classList.remove('active');
+    showMessage('完整模式', '已關閉簡潔模式\n恢復完整功能');
+  }
+  
+  // 儲存設定
+  localStorage.setItem('compactMode', isCompact);
+  
+  // 重新渲染表格
+  if (currentPage === 'list') {
+    renderQuestionList();
+  }
+}
+
+// ==================== 雲端同步 ====================
+
+let gistId = null;
+let githubToken = null;
+
+async function syncToCloud() {
+  // 檢查是否已設定 GitHub Token
+  githubToken = localStorage.getItem('githubToken');
+  
+  if (!githubToken) {
+    // 第一次使用，需要設定
+    await showSyncSetup();
+    return;
+  }
+  
+  try {
+    // 顯示同步選項
+    const action = await showSyncOptions();
+    
+    if (action === 'upload') {
+      await uploadToGist();
+    } else if (action === 'download') {
+      await downloadFromGist();
+    } else if (action === 'settings') {
+      await showSyncSetup();
+    }
+    
+  } catch (error) {
+    console.error('同步失敗:', error);
+    showMessage('同步失敗', error.message);
+  }
+}
+
+function showSyncOptions() {
+  return new Promise((resolve) => {
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.display = 'flex';
+    modal.innerHTML = `
+      <div class="modal-content">
+        <div class="modal-header">☁️ 雲端同步</div>
+        <div class="modal-body">
+          <p>選擇同步方向：</p>
+          <button class="win98-button" style="width:100%; margin:8px 0;" onclick="this.closest('.modal').dataset.action='upload'">
+            ⬆️ 上傳到雲端<br>
+            <small>將本地資料上傳到 GitHub Gist</small>
+          </button>
+          <button class="win98-button" style="width:100%; margin:8px 0;" onclick="this.closest('.modal').dataset.action='download'">
+            ⬇️ 從雲端下載<br>
+            <small>從 GitHub Gist 下載到本地</small>
+          </button>
+          <hr style="margin: 12px 0;">
+          <button class="win98-button small" style="width:100%; margin:4px 0;" onclick="this.closest('.modal').dataset.action='settings'">
+            ⚙️ 同步設定
+          </button>
+        </div>
+        <div class="modal-footer">
+          <button class="win98-button" onclick="this.closest('.modal').remove()">取消</button>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal || e.target.textContent === '取消') {
+        const action = modal.dataset.action || 'cancel';
+        modal.remove();
+        resolve(action);
+      }
+    });
+    
+    modal.querySelectorAll('.win98-button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const action = modal.dataset.action;
+        if (action) {
+          modal.remove();
+          resolve(action);
+        }
+      });
+    });
+  });
+}
+
+async function showSyncSetup() {
+  const currentToken = localStorage.getItem('githubToken') || '';
+  const currentGistId = localStorage.getItem('gistId') || '';
+  
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.style.display = 'flex';
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width: 600px;">
+      <div class="modal-header">⚙️ GitHub Gist 同步設定</div>
+      <div class="modal-body">
+        <p><strong>如何設定：</strong></p>
+        <ol style="font-size: 13px; line-height: 1.6;">
+          <li>到 GitHub → Settings → Developer settings → Personal access tokens</li>
+          <li>Generate new token (classic)</li>
+          <li>勾選 <code>gist</code> 權限</li>
+          <li>複製 token 貼到下方</li>
+        </ol>
+        
+        <div style="margin: 16px 0;">
+          <label style="display: block; margin-bottom: 4px; font-weight: bold;">GitHub Token:</label>
+          <input type="password" id="github-token-input" class="win98-input" 
+                 value="${currentToken}" placeholder="ghp_xxxxxxxxxxxxx" 
+                 style="width: 100%; font-family: monospace;">
+        </div>
+        
+        <div style="margin: 16px 0;">
+          <label style="display: block; margin-bottom: 4px; font-weight: bold;">Gist ID (選填):</label>
+          <input type="text" id="gist-id-input" class="win98-input" 
+                 value="${currentGistId}" placeholder="留空則自動建立新 Gist" 
+                 style="width: 100%; font-family: monospace;">
+          <small style="color: #666;">如果已有 Gist，填入 ID 可以繼續使用</small>
+        </div>
+        
+        <div style="background: #fffacd; padding: 8px; border-radius: 4px; margin: 12px 0; font-size: 12px;">
+          ⚠️ <strong>注意：</strong>Token 會儲存在瀏覽器本地，請妥善保管。<br>
+          建議只在自己的裝置上使用此功能。
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="win98-button" onclick="document.getElementById('github-token-input').value = ''; document.getElementById('gist-id-input').value = '';">清除</button>
+        <button class="win98-button" id="save-sync-settings">儲存</button>
+        <button class="win98-button" onclick="this.closest('.modal').remove()">取消</button>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  document.getElementById('save-sync-settings').onclick = () => {
+    const token = document.getElementById('github-token-input').value.trim();
+    const gist = document.getElementById('gist-id-input').value.trim();
+    
+    if (!token) {
+      alert('請輸入 GitHub Token');
+      return;
+    }
+    
+    localStorage.setItem('githubToken', token);
+    localStorage.setItem('gistId', gist);
+    
+    modal.remove();
+    showMessage('設定完成', '已儲存 GitHub 同步設定\n\n現在可以使用雲端同步功能了！');
+  };
+}
+
+async function uploadToGist() {
+  const token = localStorage.getItem('githubToken');
+  let gistId = localStorage.getItem('gistId');
+  
+  // 準備要上傳的資料
+  const data = {
+    practiceLog: practiceLog,
+    lastSync: new Date().toISOString()
+  };
+  
+  const gistContent = {
+    description: '刷題機 V2.0 - 答題記錄',
+    public: false,
+    files: {
+      'practice-log.json': {
+        content: JSON.stringify(data, null, 2)
+      }
+    }
+  };
+  
+  try {
+    let response;
+    
+    if (gistId) {
+      // 更新現有 Gist
+      response = await fetch(`https://api.github.com/gists/${gistId}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `token ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(gistContent)
+      });
+    } else {
+      // 建立新 Gist
+      response = await fetch('https://api.github.com/gists', {
+        method: 'POST',
+        headers: {
+          'Authorization': `token ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(gistContent)
+      });
+    }
+    
+    if (!response.ok) {
+      throw new Error(`GitHub API Error: ${response.status}`);
+    }
+    
+    const result = await response.json();
+    
+    // 儲存 Gist ID
+    localStorage.setItem('gistId', result.id);
+    
+    showMessage('上傳成功', `已上傳到 GitHub Gist\n\nGist ID: ${result.id}\n最後同步: ${new Date().toLocaleString()}`);
+    
+  } catch (error) {
+    console.error('上傳失敗:', error);
+    showMessage('上傳失敗', `${error.message}\n\n請檢查：\n1. Token 是否正確\n2. 是否有 gist 權限\n3. 網路連線是否正常`);
+  }
+}
+
+async function downloadFromGist() {
+  const token = localStorage.getItem('githubToken');
+  const gistId = localStorage.getItem('gistId');
+  
+  if (!gistId) {
+    showMessage('錯誤', '尚未設定 Gist ID\n\n請先上傳一次，或在設定中填入 Gist ID');
+    return;
+  }
+  
+  try {
+    const response = await fetch(`https://api.github.com/gists/${gistId}`, {
+      headers: {
+        'Authorization': `token ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`GitHub API Error: ${response.status}`);
+    }
+    
+    const gist = await response.json();
+    const content = gist.files['practice-log.json'].content;
+    const data = JSON.parse(content);
+    
+    // 詢問是否覆蓋
+    if (practiceLog.length > 0) {
+      if (!confirm(`本地有 ${practiceLog.length} 筆記錄\n雲端有 ${data.practiceLog.length} 筆記錄\n\n確定要用雲端資料覆蓋本地嗎？`)) {
+        return;
+      }
+    }
+    
+    // 更新本地資料
+    practiceLog = data.practiceLog;
+    saveToLocalStorage();
+    
+    // 重新渲染
+    if (currentPage === 'list') {
+      renderQuestionList();
+      renderHobbitLog();
+    }
+    
+    showMessage('下載成功', `已從雲端下載資料\n\n記錄數: ${practiceLog.length}\n最後同步: ${new Date(data.lastSync).toLocaleString()}`);
+    
+  } catch (error) {
+    console.error('下載失敗:', error);
+    showMessage('下載失敗', `${error.message}\n\n請檢查：\n1. Gist ID 是否正確\n2. Token 是否有效\n3. 網路連線是否正常`);
+  }
 }
 
 // ==================== 初始化完成 ====================

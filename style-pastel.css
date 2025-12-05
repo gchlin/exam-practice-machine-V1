@@ -781,6 +781,57 @@ textarea.win98-input {
 .ml-4 { margin-left: 8px; }
 .ml-8 { margin-left: 16px; }
 
+/* ==================== 簡潔模式（手機專用）==================== */
+body.compact-mode .win98-menubar {
+  display: none;
+}
+
+body.compact-mode .toolbar {
+  display: none;
+}
+
+body.compact-mode .display-options {
+  display: none;
+}
+
+body.compact-mode .top-info-bar {
+  flex-direction: column;
+  padding: 8px;
+  gap: 6px;
+}
+
+body.compact-mode .info-center {
+  display: none;
+}
+
+body.compact-mode .month-stats {
+  display: none;
+}
+
+body.compact-mode .motivational-quote {
+  display: none;
+}
+
+body.compact-mode .top-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+body.compact-mode .col-school,
+body.compact-mode .col-chapter,
+body.compact-mode .col-text {
+  display: none !important;
+}
+
+body.compact-mode .practice-header {
+  padding: 8px;
+}
+
+body.compact-mode .win98-content {
+  padding: 10px;
+}
+
 /* ==================== 響應式 ==================== */
 @media (max-width: 1200px) {
   .win98-window {

@@ -863,6 +863,57 @@ code {
   border: 1px solid #808080;
 }
 
+/* ==================== 簡潔模式（手機專用）==================== */
+body.compact-mode .win98-menubar {
+  display: none;
+}
+
+body.compact-mode .toolbar {
+  display: none;
+}
+
+body.compact-mode .display-options {
+  display: none;
+}
+
+body.compact-mode .top-info-bar {
+  flex-direction: column;
+  padding: 6px;
+  gap: 6px;
+}
+
+body.compact-mode .info-center {
+  display: none;
+}
+
+body.compact-mode .month-stats {
+  display: none;
+}
+
+body.compact-mode .motivational-quote {
+  display: none;
+}
+
+body.compact-mode .top-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+body.compact-mode .col-school,
+body.compact-mode .col-chapter,
+body.compact-mode .col-text {
+  display: none !important;
+}
+
+body.compact-mode .practice-header {
+  padding: 6px;
+}
+
+body.compact-mode .win98-content {
+  padding: 8px;
+}
+
 /* ==================== 響應式 ==================== */
 @media (max-width: 1200px) {
   .win98-window {

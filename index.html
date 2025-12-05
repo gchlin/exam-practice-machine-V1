@@ -43,6 +43,7 @@
       <div class="theme-switcher">
         <div class="theme-btn active" onclick="switchTheme('win98')" id="theme-win98">復古</div>
         <div class="theme-btn" onclick="switchTheme('pastel')" id="theme-pastel">柔和</div>
+        <div class="theme-btn" onclick="toggleCompactMode()" id="theme-compact" title="手機簡潔模式">📱</div>
       </div>
       <div class="win98-titlebar-buttons">
         <div class="win98-titlebar-button">_</div>
@@ -121,8 +122,10 @@
             </div>
             <!-- 功能按鈕 -->
             <div class="top-buttons">
+              <button id="btn-sync-cloud" class="win98-button small" title="雲端同步（跨裝置）">☁️ 同步</button>
               <button id="btn-reload-questions" class="win98-button small" title="強制重新下載題庫（避免快取）">🔄 更新題庫</button>
-              <button id="btn-export-logs" class="win98-button small">匯出紀錄</button>
+              <button id="btn-export-logs" class="win98-button small" title="匯出答題記錄">📤 匯出</button>
+              <button id="btn-import-logs" class="win98-button small" title="匯入答題記錄">📥 匯入</button>
               <button id="btn-show-stats" class="win98-button small">統計分析</button>
             </div>
           </div>
