@@ -1443,6 +1443,72 @@ body.mobile-mode .practice-controls {
   color: #6b637a;
 }
 
+/* 手機瀏覽頁 */
+.mobile-browse-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 10px;
+}
+
+.mobile-browse-meta {
+  display: flex;
+  justify-content: space-between;
+  font-weight: bold;
+  color: #5c4d7d;
+}
+
+.mobile-browse-image-frame {
+  border: 1px solid #d5d1e5;
+  background: #fff;
+  padding: 8px;
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+}
+
+.mobile-browse-image-frame img {
+  max-width: 100%;
+  max-height: 65vh;
+  object-fit: contain;
+}
+
+.mobile-browse-controls {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 10px;
+}
+
+.mobile-browse-btn {
+  padding: 12px;
+  font-size: 15px;
+  border-radius: 10px;
+}
+
+.mobile-browse-stars {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.mb-star {
+  padding: 12px 14px;
+  border: 1px solid #d5d1e5;
+  background: #f9f7ff;
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+}
+
+.mb-star.active {
+  background: #ffe89b;
+  border-color: #f5c542;
+}
+
 
 /* ???????? */
 .page {

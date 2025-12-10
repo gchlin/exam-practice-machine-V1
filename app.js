@@ -29,6 +29,11 @@ let currentDifficulty = 0;
 let currentNote = '';
 let predictedDifficulties = {};  // 儲存預測難度
 let isBrowseMode = false;        // 瀏覽模式旗標
+let isMobileBrowse = false;      // 手機瀏覽模式
+let mobileBrowseQuestions = [];
+let mobileBrowseIndex = 0;
+let mobileBrowseTimes = {};
+let mobileQuestionStartTime = null;
 
 // 未完成會話
 let unfinishedSession = null;
@@ -90,6 +95,8 @@ function bindEvents() {
   document.getElementById('btn-start-selected').addEventListener('click', startSelectedPractice);
   // 瀏覽模式
   document.getElementById('btn-start-browse').addEventListener('click', startBrowseMode);
+  // 手機瀏覽模式
+  document.getElementById('btn-start-mobile-browse').addEventListener('click', startMobileBrowseMode);
   // 檢視練習紀錄
   document.getElementById('btn-view-log').addEventListener('click', () => {
     renderLogPage();
@@ -126,6 +133,17 @@ function bindEvents() {
   document.getElementById('btn-save-note').addEventListener('click', saveCurrentNote);
   document.getElementById('btn-save-later').addEventListener('click', saveForLater);
   document.getElementById('btn-end-session').addEventListener('click', endSession);
+  // 手機瀏覽頁
+  const mbPrevBtn = document.getElementById('mb-prev');
+  const mbNextBtn = document.getElementById('mb-next');
+  if (mbPrevBtn) mbPrevBtn.addEventListener('click', mbPrev);
+  if (mbNextBtn) mbNextBtn.addEventListener('click', mbNext);
+  document.querySelectorAll('.mb-star').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const v = parseInt(btn.dataset.value, 10);
+      logMobileBrowseRating(v);
+    });
+  });
   
   // Summary
   document.getElementById('btn-summary-back').addEventListener('click', () => {
@@ -725,7 +743,36 @@ function startBrowseMode() {
   }
   
   isBrowseMode = true;
+  isMobileBrowse = false;
   startPracticeWithQuestions(selected);
+}
+
+function startMobileBrowseMode() {
+  const checkboxes = document.querySelectorAll('.question-checkbox:checked');
+  let selected = [];
+
+  if (checkboxes.length > 0) {
+    selected = Array.from(checkboxes).map(cb => {
+      const qid = cb.dataset.qid;
+      return allQuestions.find(q => getQID(q) === qid);
+    }).filter(Boolean);
+  } else {
+    selected = [...filteredQuestions];
+  }
+
+  if (selected.length === 0) {
+    showMessage('提示', '請先選擇至少一題或套用篩選後再進入手機瀏覽模式。');
+    return;
+  }
+
+  isBrowseMode = false;
+  isMobileBrowse = true;
+  mobileBrowseQuestions = selected;
+  mobileBrowseIndex = 0;
+  mobileBrowseTimes = {};
+  selected.forEach(q => mobileBrowseTimes[getQID(q)] = 0);
+  showPage('mobile-browse');
+  renderMobileBrowseQuestion(0);
 }
 
 
@@ -742,6 +789,103 @@ function startPracticeWithQuestions(questions) {
     showPage('predict');
     renderPredictPage();
   }
+}
+
+// ==================== 手機瀏覽模式 ====================
+
+function renderMobileBrowseQuestion(index) {
+  if (index < 0 || index >= mobileBrowseQuestions.length) return;
+  mobileBrowseIndex = index;
+
+  const q = mobileBrowseQuestions[index];
+  const qid = getQID(q);
+  const metaText = `${q.Year || '-'} / ${q.School || '-'} / ${q.Chapter || '-'}`;
+  if (!(qid in mobileBrowseTimes)) {
+    mobileBrowseTimes[qid] = 0;
+  }
+
+  document.getElementById('mb-qid').textContent = `Q_ID: ${qid}`;
+  document.getElementById('mb-meta').textContent = metaText;
+
+  const img = document.getElementById('mb-problem-img');
+  img.src = q['Problem Image'] || q['題目圖片'] || '';
+  img.onclick = () => enlargeImage(img.src, metaText);
+
+  updateMobileBrowseStars(getUserDifficulty(qid));
+
+  // 開始計時
+  mobileQuestionStartTime = Date.now();
+}
+
+function updateMobileBrowseStars(value) {
+  const stars = document.querySelectorAll('.mb-star');
+  stars.forEach(star => {
+    const v = parseInt(star.dataset.value, 10);
+    if (v <= value) {
+      star.classList.add('active');
+    } else {
+      star.classList.remove('active');
+    }
+  });
+}
+
+function accumulateMobileTime() {
+  const q = mobileBrowseQuestions[mobileBrowseIndex];
+  if (!q) return 0;
+  const qid = getQID(q);
+  const now = Date.now();
+  let elapsed = 0;
+  if (mobileQuestionStartTime) {
+    elapsed = Math.max(0, Math.floor((now - mobileQuestionStartTime) / 1000));
+    mobileBrowseTimes[qid] = (mobileBrowseTimes[qid] || 0) + elapsed;
+  }
+  mobileQuestionStartTime = now;
+  return elapsed;
+}
+
+function logMobileBrowseRating(value) {
+  accumulateMobileTime();
+  const q = mobileBrowseQuestions[mobileBrowseIndex];
+  const qid = getQID(q);
+  const now = Date.now();
+
+  const today = new Date().toISOString().split('T')[0];
+  const log = {
+    Q_ID: qid,
+    Date: today,
+    TimeSeconds: mobileBrowseTimes[qid],
+    PredictedDifficulty: predictedDifficulties[qid] || 0,
+    ActualDifficulty: value,
+    Note: '',
+    Result: 'Browse',
+    Year: q.Year,
+    School: q.School,
+    StartAt: new Date(now - (mobileBrowseTimes[qid] || 0) * 1000).toISOString(),
+    EndAt: new Date(now).toISOString(),
+    Mode: 'Browse-Mobile'
+  };
+
+  // 覆寫同日同題的瀏覽紀錄
+  const idx = practiceLog.findIndex(l => l.Q_ID === qid && l.Date === today && l.Mode === 'Browse-Mobile');
+  if (idx >= 0) {
+    practiceLog[idx] = log;
+  } else {
+    practiceLog.push(log);
+  }
+  saveToLocalStorage();
+  updateMobileBrowseStars(value);
+}
+
+function mbPrev() {
+  if (mobileBrowseIndex <= 0) return;
+  accumulateMobileTime();
+  renderMobileBrowseQuestion(mobileBrowseIndex - 1);
+}
+
+function mbNext() {
+  if (mobileBrowseIndex >= mobileBrowseQuestions.length - 1) return;
+  accumulateMobileTime();
+  renderMobileBrowseQuestion(mobileBrowseIndex + 1);
 }
 
 
@@ -1854,13 +1998,6 @@ function handleKeyboard(e) {
 function loadTheme() {
   const savedTheme = localStorage.getItem('theme') || 'win98';
   switchTheme(savedTheme);
-  
-  // 載入簡潔模式設定
-  const compactMode = localStorage.getItem('compactMode') === 'true';
-  if (compactMode) {
-    document.body.classList.add('compact-mode');
-    document.getElementById('theme-compact')?.classList.add('active');
-  }
 }
 
 function switchTheme(theme) {
@@ -1869,34 +2006,12 @@ function switchTheme(theme) {
   
   // 更新按鈕狀態
   document.querySelectorAll('.theme-btn').forEach(btn => {
-    if (btn.id === 'theme-compact') return; // 不影響簡潔模式按鈕
     btn.classList.remove('active');
   });
   document.getElementById(`theme-${theme}`).classList.add('active');
   
   // 儲存選擇
   localStorage.setItem('theme', theme);
-}
-
-function toggleCompactMode() {
-  const isCompact = document.body.classList.toggle('compact-mode');
-  const btn = document.getElementById('theme-compact');
-  
-  if (isCompact) {
-    btn.classList.add('active');
-    showMessage('簡潔模式', '已開啟手機簡潔模式\n\n隱藏：\n- 選單列\n- 篩選工具\n- 熱力圖\n- 次要欄位');
-  } else {
-    btn.classList.remove('active');
-    showMessage('完整模式', '已關閉簡潔模式\n恢復完整功能');
-  }
-  
-  // 儲存設定
-  localStorage.setItem('compactMode', isCompact);
-  
-  // 重新渲染表格
-  if (currentPage === 'list') {
-    renderQuestionList();
-  }
 }
 
 // ==================== 雲端同步 ====================

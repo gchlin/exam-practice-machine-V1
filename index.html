@@ -43,7 +43,6 @@
       <div class="theme-switcher">
         <div class="theme-btn active" onclick="switchTheme('win98')" id="theme-win98">復古</div>
         <div class="theme-btn" onclick="switchTheme('pastel')" id="theme-pastel">柔和</div>
-        <div class="theme-btn" onclick="toggleCompactMode()" id="theme-compact" title="手機簡潔模式">📱</div>
       </div>
       <div class="win98-titlebar-buttons">
         <div class="win98-titlebar-button">_</div>
@@ -244,6 +243,7 @@
           <button id="btn-random-3" class="win98-button">隨機3題</button>
           <button id="btn-start-selected" class="win98-button">開始練習選中題目</button>
           <button id="btn-start-browse" class="win98-button">瀏覽模式</button>
+          <button id="btn-start-mobile-browse" class="win98-button">手機瀏覽模式</button>
           <button id="btn-view-log" class="win98-button">查看練習紀錄</button>
         </div>
 
@@ -476,7 +476,32 @@
         </div>
       </div>
 
-      <!-- ========== 頁面 5: Summary ========== -->
+      <!-- ========== 頁面 5: 手機瀏覽 ========== -->
+      <div id="page-mobile-browse" class="page">
+        <div class="section-title">手機瀏覽模式</div>
+        <div class="mobile-browse-wrap">
+          <div class="mobile-browse-meta">
+            <div id="mb-qid">Q_ID: -</div>
+            <div id="mb-meta">- / - / -</div>
+          </div>
+          <div class="mobile-browse-image-frame">
+            <img id="mb-problem-img" alt="題目圖片">
+          </div>
+          <div class="mobile-browse-controls">
+            <button id="mb-prev" class="mobile-browse-btn">上一題</button>
+            <div class="mobile-browse-stars" id="mb-stars">
+              <button class="mb-star" data-value="1">★</button>
+              <button class="mb-star" data-value="2">★</button>
+              <button class="mb-star" data-value="3">★</button>
+              <button class="mb-star" data-value="4">★</button>
+              <button class="mb-star" data-value="5">★</button>
+            </div>
+            <button id="mb-next" class="mobile-browse-btn">下一題</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== 頁面 6: Summary ========== -->
       <div id="page-summary" class="page">
         <div class="section-title">本輪 Summary</div>
         <div id="summary-content" class="summary-panel">
