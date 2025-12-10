@@ -166,13 +166,38 @@
                 <option value="unpracticed">未練習</option>
               </select>
             </label>
+            <label class="small">
+              題型
+              <select id="filter-type" class="win98-input">
+                <option value="">全部</option>
+              </select>
+            </label>
+            <label class="small">
+              語言
+              <select id="filter-lang" class="win98-input">
+                <option value="">全部</option>
+                <option value="zh">中文</option>
+                <option value="en">英文</option>
+              </select>
+            </label>
+            <label class="small">
+              星等
+              <select id="filter-rating" class="win98-input">
+                <option value="">全部</option>
+                <option value="1">1 星</option>
+                <option value="2">2 星</option>
+                <option value="3">3 星</option>
+                <option value="4">4 星</option>
+                <option value="5">5 星</option>
+              </select>
+            </label>
           </div>
 
           <!-- 搜尋 -->
           <div class="toolbar-group">
             <label class="small">
-              搜尋題目內文
-              <input type="text" id="filter-search" class="win98-input" placeholder="輸入關鍵字...">
+              搜尋題目／筆記
+              <input type="text" id="filter-search" class="win98-input" placeholder="題目/文字/筆記關鍵字">
             </label>
           </div>
 
@@ -218,6 +243,8 @@
 
           <button id="btn-random-3" class="win98-button">隨機3題</button>
           <button id="btn-start-selected" class="win98-button">開始練習選中題目</button>
+          <button id="btn-start-browse" class="win98-button">瀏覽模式</button>
+          <button id="btn-view-log" class="win98-button">查看練習紀錄</button>
         </div>
 
         <!-- 顯示選項 -->
@@ -431,7 +458,25 @@
         </div>
       </div>
 
-      <!-- ========== 頁面 4: Summary ========== -->
+      <!-- ========== 頁面 4: 練習紀錄檢視 ========== -->
+      <div id="page-log" class="page">
+        <div class="section-title">練習紀錄</div>
+        <div class="log-layout">
+          <div class="log-dates">
+            <div class="log-dates-title">日期</div>
+            <ul id="log-date-list"></ul>
+          </div>
+          <div class="log-details">
+            <div class="log-details-header">
+              <span id="log-selected-date">請選擇日期</span>
+              <button id="btn-log-back" class="win98-button small">回列表</button>
+            </div>
+            <div id="log-items"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== 頁面 5: Summary ========== -->
       <div id="page-summary" class="page">
         <div class="section-title">本輪 Summary</div>
         <div id="summary-content" class="summary-panel">
@@ -457,7 +502,10 @@
   <div id="image-modal" class="modal" style="display: none;" onclick="closeImageModal()">
     <div class="modal-content" onclick="event.stopPropagation()">
       <div class="modal-header">
-        <span>圖片預覽</span>
+        <div class="modal-title-group">
+          <span>圖片預覽</span>
+          <span id="modal-meta" class="small"></span>
+        </div>
         <span class="modal-close" onclick="closeImageModal()">✕</span>
       </div>
       <div class="modal-body">

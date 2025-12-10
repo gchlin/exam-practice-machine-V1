@@ -28,6 +28,7 @@ let currentResult = null;
 let currentDifficulty = 0;
 let currentNote = '';
 let predictedDifficulties = {};  // 儲存預測難度
+let isBrowseMode = false;        // 瀏覽模式旗標
 
 // 未完成會話
 let unfinishedSession = null;
@@ -87,6 +88,13 @@ function bindEvents() {
   
   // 開始練習選中題目
   document.getElementById('btn-start-selected').addEventListener('click', startSelectedPractice);
+  // 瀏覽模式
+  document.getElementById('btn-start-browse').addEventListener('click', startBrowseMode);
+  // 檢視練習紀錄
+  document.getElementById('btn-view-log').addEventListener('click', () => {
+    renderLogPage();
+    showPage('log');
+  });
   
   // 顯示/隱藏欄位
   document.getElementById('show-image').addEventListener('change', toggleImageColumn);
@@ -124,6 +132,10 @@ function bindEvents() {
     showPage('list');
     initListPage();
   });
+  const btnLogBack = document.getElementById('btn-log-back');
+  if (btnLogBack) {
+    btnLogBack.addEventListener('click', () => showPage('list'));
+  }
   
   // 鍵盤快捷鍵
   document.addEventListener('keydown', handleKeyboard);
@@ -456,11 +468,13 @@ function initFilters() {
   const years = [...new Set(allQuestions.map(q => q.Year).filter(Boolean))].sort();
   const schools = [...new Set(allQuestions.map(q => q.School).filter(Boolean))].sort();
   const chapters = [...new Set(allQuestions.map(q => q.Chapter).filter(Boolean))].sort();
+  const types = [...new Set(allQuestions.map(q => q['Question Type'] || '').filter(Boolean))].sort();
   
   populateSelect('filter-year', years);
   populateSelect('filter-school', schools);
   populateSelect('filter-chapter', chapters);
   populateSelect('random-chapter', chapters);
+  populateSelect('filter-type', types);
 }
 
 function populateSelect(id, options) {
@@ -484,20 +498,34 @@ function applyFilters() {
   const school = document.getElementById('filter-school').value;
   const chapter = document.getElementById('filter-chapter').value;
   const status = document.getElementById('filter-status').value;
+  const type = document.getElementById('filter-type').value;
+  const lang = document.getElementById('filter-lang').value;
+  const rating = document.getElementById('filter-rating').value;
   const search = document.getElementById('filter-search').value.toLowerCase();
   
   filteredQuestions = allQuestions.filter(q => {
+    const qid = getQID(q);
+    
     if (year && q.Year !== year) return false;
     if (school && q.School !== school) return false;
     if (chapter && q.Chapter !== chapter) return false;
+    if (type && (q['Question Type'] || '') !== type) return false;
+    if (lang && getLanguage(q) !== lang) return false;
     
-    if (status === 'practiced' && !isPracticed(getQID(q))) return false;
-    if (status === 'unpracticed' && isPracticed(getQID(q))) return false;
+    if (status === 'practiced' && !isPracticed(qid)) return false;
+    if (status === 'unpracticed' && isPracticed(qid)) return false;
     
-    // 搜尋 Extracted Text
+    if (rating) {
+      const userRating = getUserDifficulty(qid);
+      if (String(userRating) !== rating) return false;
+    }
+    
+    // 搜尋題目／筆記
     if (search) {
       const extractedText = (q['Extracted Text'] || '').toLowerCase();
-      if (!extractedText.includes(search)) return false;
+      const displayName = (q['Display Name'] || '').toLowerCase();
+      const note = (getPreviousNote(qid) || '').toLowerCase();
+      if (!extractedText.includes(search) && !displayName.includes(search) && !note.includes(search)) return false;
     }
     
     return true;
@@ -511,6 +539,9 @@ function resetFilters() {
   document.getElementById('filter-school').value = '';
   document.getElementById('filter-chapter').value = '';
   document.getElementById('filter-status').value = '';
+  document.getElementById('filter-type').value = '';
+  document.getElementById('filter-lang').value = '';
+  document.getElementById('filter-rating').value = '';
   document.getElementById('filter-search').value = '';
   
   applyFilters();
@@ -652,6 +683,7 @@ function startRandom3() {
     selected.push(shuffled[i]);
   }
   
+  isBrowseMode = false;
   startPracticeWithQuestions(selected);
 }
 
@@ -669,18 +701,47 @@ function startSelectedPractice() {
     if (q) selected.push(q);
   });
   
+  isBrowseMode = false;
   startPracticeWithQuestions(selected);
 }
+
+
+function startBrowseMode() {
+  const checkboxes = document.querySelectorAll('.question-checkbox:checked');
+  let selected = [];
+  
+  if (checkboxes.length > 0) {
+    selected = Array.from(checkboxes).map(cb => {
+      const qid = cb.dataset.qid;
+      return allQuestions.find(q => getQID(q) === qid);
+    }).filter(Boolean);
+  } else {
+    selected = [...filteredQuestions];
+  }
+  
+  if (selected.length === 0) {
+    showMessage('??', '??????????????????????');
+    return;
+  }
+  
+  isBrowseMode = true;
+  startPracticeWithQuestions(selected);
+}
+
 
 function startPracticeWithQuestions(questions) {
   practiceQuestions = questions;
   
   // 重置預測難度
   predictedDifficulties = {};
-  
-  // 進入預測頁面
-  showPage('predict');
-  renderPredictPage();
+  if (isBrowseMode) {
+    startPracticePage();
+    showPage('practice');
+  } else {
+    // 進入預測頁面
+    showPage('predict');
+    renderPredictPage();
+  }
 }
 
 
@@ -816,10 +877,13 @@ function displayQuestion(index) {
   // 顯示題目圖片
   const problemImg = document.getElementById('practice-problem-img');
   problemImg.src = q['Problem Image'] || q['題目圖片'] || '';
+  problemImg.onclick = () => enlargeImage(problemImg.src, `${q.Year || '-'} / ${q.School || '-'}`);
   
   // 載入解答和詳解（但先隱藏）
   document.getElementById('practice-answer-img').src = q['Answer Image'] || q['解答圖片'] || '';
   document.getElementById('practice-solution-img').src = q['Solution Image'] || q['詳解圖片'] || '';
+  document.getElementById('practice-answer-img').onclick = () => enlargeImage(document.getElementById('practice-answer-img').src, `${q.Year || '-'} / ${q.School || '-'}`);
+  document.getElementById('practice-solution-img').onclick = () => enlargeImage(document.getElementById('practice-solution-img').src, `${q.Year || '-'} / ${q.School || '-'}`);
   document.getElementById('answer-container').style.display = 'none';
   document.getElementById('answer-placeholder').style.display = 'block';
   document.getElementById('btn-toggle-answer').textContent = '顯示解答/詳解 (A)';
@@ -841,6 +905,11 @@ function displayQuestion(index) {
   // 按鈕狀態
   document.getElementById('btn-prev').disabled = index === 0;
   document.getElementById('btn-next').disabled = false;
+  const resultButtonsDisabled = isBrowseMode;
+  ['btn-correct', 'btn-wrong', 'btn-skip'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) btn.disabled = resultButtonsDisabled;
+  });
   
   // 開始這題的計時
   currentQuestionStartTime = Date.now();
@@ -888,6 +957,7 @@ function recordResult(result) {
   questionTimes[qid] += thisQuestionTime;
   
   const today = new Date().toISOString().split('T')[0];
+  const endAt = new Date();
   
   const log = {
     Q_ID: qid,
@@ -896,7 +966,12 @@ function recordResult(result) {
     PredictedDifficulty: predictedDifficulties[qid] || 0,
     ActualDifficulty: currentDifficulty,
     Note: currentNote,
-    Result: result
+    Result: result,
+    Year: q.Year,
+    School: q.School,
+    StartAt: new Date(currentQuestionStartTime).toISOString(),
+    EndAt: endAt.toISOString(),
+    Mode: isBrowseMode ? 'Browse' : 'Practice'
   };
   
   practiceLog.push(log);
@@ -915,6 +990,41 @@ function recordResult(result) {
   if (currentIndex < practiceQuestions.length - 1) {
     setTimeout(() => nextQuestion(), 500);
   }
+}
+
+function saveBrowseLog() {
+  const q = practiceQuestions[currentIndex];
+  const qid = getQID(q);
+  const now = Date.now();
+  const elapsed = Math.floor((now - currentQuestionStartTime) / 1000);
+  questionTimes[qid] += elapsed;
+  currentQuestionStartTime = now;
+  
+  const today = new Date().toISOString().split('T')[0];
+  const log = {
+    Q_ID: qid,
+    Date: today,
+    TimeSeconds: questionTimes[qid],
+    PredictedDifficulty: predictedDifficulties[qid] || 0,
+    ActualDifficulty: currentDifficulty,
+    Note: currentNote,
+    Result: 'Browse',
+    Year: q.Year,
+    School: q.School,
+    StartAt: new Date(currentQuestionStartTime).toISOString(),
+    EndAt: new Date().toISOString(),
+    Mode: 'Browse'
+  };
+  
+  const existingIndex = practiceLog.findIndex(l => l.Q_ID === qid && l.Date === today && l.Result === 'Browse');
+  if (existingIndex >= 0) {
+    practiceLog[existingIndex] = log;
+  } else {
+    practiceLog.push(log);
+  }
+  
+  updateHobbitLog(today, elapsed);
+  saveToLocalStorage();
 }
 
 function prevQuestion() {
@@ -945,6 +1055,10 @@ function setDifficulty(value) {
   currentDifficulty = value;
   updateDifficultyStars(value);
   updateMobileStars(value);
+  
+  if (isBrowseMode) {
+    saveBrowseLog();
+  }
 }
 
 function updateDifficultyStars(value) {
@@ -1074,6 +1188,80 @@ function renderSummary() {
   container.innerHTML = html;
 }
 
+// ==================== 練習紀錄檢視 ====================
+
+function renderLogPage() {
+  const dateList = document.getElementById('log-date-list');
+  const items = document.getElementById('log-items');
+  if (!dateList || !items) return;
+
+  const dates = [...new Set(practiceLog.map(l => l.Date).filter(Boolean))].sort((a, b) => b.localeCompare(a));
+  dateList.innerHTML = '';
+  items.innerHTML = '';
+
+  if (dates.length === 0) {
+    document.getElementById('log-selected-date').textContent = '尚無紀錄';
+    items.innerHTML = '<div class="small">目前沒有練習紀錄。</div>';
+    return;
+  }
+
+  dates.forEach(date => {
+    const li = document.createElement('li');
+    const btn = document.createElement('button');
+    btn.textContent = date;
+    btn.className = 'win98-button small';
+    btn.addEventListener('click', () => renderLogDate(date));
+    li.appendChild(btn);
+    dateList.appendChild(li);
+  });
+
+  renderLogDate(dates[0]);
+}
+
+function renderLogDate(date) {
+  const items = document.getElementById('log-items');
+  if (!items) return;
+
+  document.getElementById('log-selected-date').textContent = date;
+  const logs = practiceLog
+    .filter(l => l.Date === date)
+    .sort((a, b) => (a.StartAt || '').localeCompare(b.StartAt || ''));
+
+  items.innerHTML = '';
+
+  logs.forEach(log => {
+    const q = allQuestions.find(q => getQID(q) === log.Q_ID) || {};
+    const stars = log.ActualDifficulty ? '★'.repeat(log.ActualDifficulty) : '';
+    const timeMin = Math.floor((log.TimeSeconds || 0) / 60);
+    const div = document.createElement('div');
+    div.className = 'log-item';
+    div.innerHTML = `
+      <div class="log-item-header">
+        <strong>${log.Q_ID || '-'} </strong>
+        <span class="small">${q.Year || log.Year || '-'} / ${q.School || log.School || '-'}</span>
+      </div>
+      <div class="log-item-body">
+        <span>${log.Result || ''}</span>
+        <span>${stars}</span>
+        <span>${timeMin} 分鐘</span>
+        <button class="win98-button small" data-qid="${log.Q_ID || ''}">預覽</button>
+      </div>
+      <div class="log-item-note small">${log.Note || log.Notes || ''}</div>
+    `;
+    const btn = div.querySelector('button');
+    if (btn) {
+      btn.addEventListener('click', () => {
+        const question = allQuestions.find(item => getQID(item) === log.Q_ID);
+        if (question) {
+          const src = question['Problem Image'] || '';
+          enlargeImage(src, `${question.Year || '-'} / ${question.School || '-'}`);
+        }
+      });
+    }
+    items.appendChild(div);
+  });
+}
+
 // ==================== Hobbit Log ====================
 
 function updateHobbitLog(date, seconds) {
@@ -1195,19 +1383,24 @@ function toggleTimer() {
 
 function startTimer() {
   if (timerInterval) return;
-  
-  const sessionStart = Date.now();
-  const questionStart = Date.now();
-  
+
+  if (sessionStartTime && sessionTotalSeconds > 0) {
+    sessionStartTime = Date.now() - sessionTotalSeconds * 1000;
+  } else if (!sessionStartTime) {
+    sessionStartTime = Date.now();
+  }
+
+  currentQuestionStartTime = Date.now();
+
   timerInterval = setInterval(() => {
     // 更新總時間
-    const totalElapsed = sessionTotalSeconds + Math.floor((Date.now() - sessionStart) / 1000);
+    const totalElapsed = Math.floor((Date.now() - sessionStartTime) / 1000);
     updateTotalTimerDisplay(totalElapsed);
     
     // 更新單題時間
     const qid = getQID(practiceQuestions[currentIndex]);
     const baseTime = questionTimes[qid] || 0;
-    const currentElapsed = Math.floor((Date.now() - questionStart) / 1000);
+    const currentElapsed = Math.max(0, Math.floor((Date.now() - currentQuestionStartTime) / 1000));
     updateSingleTimerDisplay(baseTime + currentElapsed);
   }, 1000);
 }
@@ -1218,8 +1411,10 @@ function stopTimer() {
     timerInterval = null;
     
     // 儲存當前的總時間
-    const elapsed = Math.floor((Date.now() - sessionStartTime) / 1000);
-    sessionTotalSeconds = elapsed;
+    if (sessionStartTime) {
+      const elapsed = Math.floor((Date.now() - sessionStartTime) / 1000);
+      sessionTotalSeconds = elapsed;
+    }
   }
 }
 
@@ -1300,11 +1495,21 @@ function showPage(pageName) {
   const page = document.getElementById(`page-${pageName}`);
   if (page) {
     page.classList.add('active');
+    if (pageName === 'log') {
+      renderLogPage();
+    }
   }
 }
 
 function getQID(question) {
   return question.Q_ID || question.ExamID || question['題目ID'] || '';
+}
+
+function getLanguage(question) {
+  if (question.Language) return question.Language;
+  const text = (question['Extracted Text'] || question['Display Name'] || '').trim();
+  if (!text) return '';
+  return /[\u4e00-\u9fff]/.test(text) ? 'zh' : 'en';
 }
 
 function isPracticed(qid) {
@@ -1373,9 +1578,11 @@ function closeMessageModal() {
   document.getElementById('message-modal').style.display = 'none';
 }
 
-function enlargeImage(src) {
+function enlargeImage(src, metaText = '') {
   const modal = document.getElementById('image-modal');
   document.getElementById('modal-image').src = src;
+  const meta = document.getElementById('modal-meta');
+  if (meta) meta.textContent = metaText;
   modal.style.display = 'flex';
 }
 
@@ -1454,11 +1661,11 @@ function exportCSV() {
   }
   
   // CSV 標題
-  let csv = 'Date,Q_ID,Result,TimeSeconds,ActualDifficulty,Notes\n';
+  let csv = 'Date,Q_ID,Result,TimeSeconds,PredictedDifficulty,ActualDifficulty,Notes,Year,School,StartAt,EndAt,Mode\n';
   
   // 資料行
   practiceLog.forEach(log => {
-    csv += `${log.Date},${log.Q_ID},${log.Result},${log.TimeSeconds},${log.ActualDifficulty},"${(log.Notes || '').replace(/"/g, '""')}"\n`;
+    csv += `${log.Date},${log.Q_ID},${log.Result},${log.TimeSeconds || 0},${log.PredictedDifficulty || 0},${log.ActualDifficulty || 0},"${(log.Note || log.Notes || '').replace(/"/g, '""')}",${log.Year || ''},${log.School || ''},${log.StartAt || ''},${log.EndAt || ''},${log.Mode || ''}\n`;
   });
   
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -1698,6 +1905,8 @@ let gistId = null;
 let githubToken = null;
 
 async function syncToCloud() {
+  showMessage('暫停', '雲端同步功能已暫停，請改用匯出/匯入備份資料。');
+  return;
   // 檢查是否已設定 GitHub Token
   githubToken = localStorage.getItem('githubToken');
   
@@ -1956,4 +2165,3 @@ async function downloadFromGist() {
 // ==================== 初始化完成 ====================
 
 console.log('app.js 載入完成');
-
