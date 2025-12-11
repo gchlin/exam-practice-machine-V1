@@ -16,6 +16,7 @@ let currentIndex = 0;
 let practiceLog = [];
 let predictLog = [];
 let hobbitLog = [];
+let currentLogDate = null;
 
 // 練習狀態
 let sessionStartTime = null;
@@ -106,6 +107,8 @@ function bindEvents() {
   // 顯示/隱藏欄位
   document.getElementById('show-image').addEventListener('change', toggleImageColumn);
   document.getElementById('show-text').addEventListener('change', toggleTextColumn);
+  const showSchoolCheckbox = document.getElementById('show-school');
+  if (showSchoolCheckbox) showSchoolCheckbox.addEventListener('change', renderQuestionList);
   
   // 雲端同步
   document.getElementById('btn-sync-cloud').addEventListener('click', syncToCloud);
@@ -116,6 +119,8 @@ function bindEvents() {
   // 匯出/匯入紀錄
   document.getElementById('btn-export-logs').addEventListener('click', exportLogs);
   document.getElementById('btn-import-logs').addEventListener('click', importLogs);
+  const btnShowStats = document.getElementById('btn-show-stats');
+  if (btnShowStats) btnShowStats.addEventListener('click', showStatsAnalysis);
   
   // 預測頁面
   document.getElementById('btn-back-to-list').addEventListener('click', () => showPage('list'));
@@ -157,6 +162,10 @@ function bindEvents() {
   const btnLogBack = document.getElementById('btn-log-back');
   if (btnLogBack) {
     btnLogBack.addEventListener('click', () => showPage('list'));
+  }
+  const btnLogReplay = document.getElementById('btn-log-replay');
+  if (btnLogReplay) {
+    btnLogReplay.addEventListener('click', redoLogQuestions);
   }
   
   // 鍵盤快捷鍵
@@ -609,6 +618,7 @@ function renderQuestionList() {
   
   const showImage = document.getElementById('show-image').checked;
   const showText = document.getElementById('show-text').checked;
+  const showSchool = document.getElementById('show-school') ? document.getElementById('show-school').checked : true;
   
   filteredQuestions.forEach((q, index) => {
     const row = document.createElement('tr');
@@ -623,9 +633,14 @@ function renderQuestionList() {
     
     let html = `
       <td class="col-check"><input type="checkbox" class="question-checkbox" data-qid="${qid}"></td>
-      <td class="col-num">${index + 1}</td>
       <td class="col-year">${q.Year || '-'}</td>
-      <td class="col-school" title="${q.School || '-'}">${(q.School || '-').substring(0, 4)}</td>
+    `;
+
+    if (showSchool) {
+      html += `<td class="col-school" title="${q.School || '-'}">${(q.School || '-').substring(0, 4)}</td>`;
+    }
+
+    html += `
       <td class="col-chapter" title="${q.Chapter || '-'}">${q.Chapter || '-'}</td>
       <td class="col-diff">${userDifficulty > 0 ? renderStars(userDifficulty) : '-'}</td>
     `;
@@ -659,13 +674,16 @@ function renderQuestionList() {
 function updateColumnVisibility() {
   const showImage = document.getElementById('show-image').checked;
   const showText = document.getElementById('show-text').checked;
+  const showSchool = document.getElementById('show-school') ? document.getElementById('show-school').checked : true;
   
   const table = document.getElementById('questions-table');
   const imageHeaders = table.querySelectorAll('th.col-image');
   const textHeaders = table.querySelectorAll('th.col-text');
+  const schoolHeaders = table.querySelectorAll('th.col-school');
   
   imageHeaders.forEach(th => th.classList.toggle('hidden', !showImage));
   textHeaders.forEach(th => th.classList.toggle('hidden', !showText));
+  schoolHeaders.forEach(th => th.classList.toggle('hidden', !showSchool));
 }
 
 function toggleImageColumn() {
@@ -690,6 +708,42 @@ function updateStatistics() {
   
   const selectedCount = document.querySelectorAll('.question-checkbox:checked').length;
   document.getElementById('selected-count').textContent = selectedCount;
+}
+
+function showStatsAnalysis() {
+  const totalQuestions = allQuestions.length;
+  const practicedSet = new Set(practiceLog.map(log => log.Q_ID));
+  const practicedCount = practicedSet.size;
+
+  const totalLogs = practiceLog.length;
+  const correct = practiceLog.filter(log => log.Result === 'Correct').length;
+  const incorrect = practiceLog.filter(log => log.Result === 'Incorrect').length;
+  const skipped = practiceLog.filter(log => log.Result === 'Skipped').length;
+  const browsed = practiceLog.filter(log => log.Result === 'Browse').length;
+
+  const totalSeconds = practiceLog.reduce((sum, log) => sum + (log.TimeSeconds || 0), 0);
+  const avgSeconds = totalLogs > 0 ? Math.round(totalSeconds / Math.max(totalLogs, 1)) : 0;
+
+  const today = new Date();
+  const thisMonth = today.getMonth();
+  const thisYear = today.getFullYear();
+  const monthLogs = hobbitLog.filter(l => {
+    const d = new Date(l.Date);
+    return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
+  });
+  const monthDays = monthLogs.length;
+  const monthMinutes = monthLogs.reduce((sum, l) => sum + Math.floor(l.TotalSeconds / 60), 0);
+  const monthQuestions = monthLogs.reduce((sum, l) => sum + l.QuestionCount, 0);
+
+  const message = [
+    `題庫：${totalQuestions} 題`,
+    `已練過：${practicedCount} 題`,
+    `總作答筆數：${totalLogs} 筆（答對 ${correct} / 答錯 ${incorrect} / 跳過 ${skipped} / 瀏覽 ${browsed}）`,
+    `平均時間：${avgSeconds} 秒/題`,
+    `本月累計：${monthDays} 天 / ${monthQuestions} 題 / ${monthMinutes} 分鐘`
+  ].join('\n');
+
+  showMessage('統計分析', message);
 }
 
 function getSelectedQuestions() {
@@ -866,109 +920,81 @@ async function startExportPDF() {
     showMessage('提示', '請先勾選要匯出的題目！');
     return;
   }
-  const layoutEl = document.querySelector('input[name="export-layout"]:checked');
-  const layout = layoutEl ? layoutEl.value : 'single';
   closeExportModal();
+  const statusLeft = document.getElementById('status-left');
+  const prevStatus = statusLeft ? statusLeft.textContent : '';
+  if (statusLeft) statusLeft.textContent = '匯出 PDF 中...';
   try {
-    await exportSelectedPDF(selected, layout);
+    await exportSelectedPDF(selected);
+    showMessage('完成', `PDF 已匯出並下載（${selected.length} 題）。`);
   } catch (error) {
     console.error('匯出 PDF 失敗:', error);
     showMessage('錯誤', '匯出 PDF 失敗，請稍後再試或檢查圖片來源。');
+  } finally {
+    if (statusLeft) statusLeft.textContent = prevStatus || '就緒';
   }
 }
 
-async function exportSelectedPDF(questions, layout) {
+async function exportSelectedPDF(questions) {
   const { jsPDF } = window.jspdf || {};
   if (!jsPDF) {
     showMessage('錯誤', '未載入 jsPDF，請確認網路連線或稍後再試。');
     return;
   }
 
-  const orientation = layout === 'double' ? 'landscape' : 'portrait';
-  const pdf = new jsPDF({ unit: 'pt', format: 'a4', orientation });
+  const pdf = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'portrait' });
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
   const margin = 36;
+  const maxWidth = pageWidth - margin * 2;
+
+  // 第一部分：流水號 + 題目圖片（相同寬度往下排）
+  let y = margin;
+  pdf.setFontSize(14);
+  pdf.text('題目', margin, y);
+  y += 18;
 
   for (let i = 0; i < questions.length; i++) {
-    if (i > 0) pdf.addPage();
-    if (layout === 'double') {
-      await renderDoubleColumn(pdf, questions[i], { pageWidth, pageHeight, margin });
+    const num = i + 1;
+    const q = questions[i];
+    const qid = getQID(q);
+    if (y + 40 > pageHeight - margin) {
+      pdf.addPage();
+      y = margin;
+    }
+    pdf.setFontSize(11);
+    pdf.text(`#${num} (Q_ID: ${qid})`, margin, y);
+    y += 12;
+    y = await appendImageWithPaging(pdf, getProblemImage(q), margin, y, maxWidth, { pageHeight, margin });
+  }
+
+  // 第二部分：答案表格（流水號 + 答案圖片）
+  pdf.addPage();
+  y = margin;
+  pdf.setFontSize(14);
+  pdf.text('答案', margin, y);
+  y += 18;
+
+  for (let i = 0; i < questions.length; i++) {
+    const num = i + 1;
+    const q = questions[i];
+    const answerSrc = getAnswerImage(q) || getSolutionImage(q);
+    if (y + 40 > pageHeight - margin) {
+      pdf.addPage();
+      y = margin;
+    }
+    pdf.setFontSize(11);
+    pdf.text(`#${num}`, margin, y);
+    y += 12;
+    if (answerSrc) {
+      y = await appendImageWithPaging(pdf, answerSrc, margin, y, maxWidth, { pageHeight, margin });
     } else {
-      await renderSingleColumn(pdf, questions[i], { pageWidth, pageHeight, margin });
+      pdf.text('（無答案圖）', margin, y);
+      y += 16;
     }
   }
 
   pdf.save(`shuatiji-selected-${formatDateForFilename(new Date())}.pdf`);
-  showMessage('完成', 'PDF 已匯出並下載。');
-}
-
-async function renderSingleColumn(pdf, question, dims) {
-  const { pageWidth, pageHeight, margin } = dims;
-  let y = margin;
-  const meta = `${question.Year || '-'} / ${question.School || '-'} / ${question.Chapter || '-'}`;
-  pdf.setFontSize(12);
-  pdf.text(meta, margin, y);
-  y += 16;
-  pdf.setFontSize(10);
-  pdf.text(`Q_ID: ${getQID(question)}`, margin, y);
-  y += 14;
-
-  y = await appendImageWithPaging(pdf, getProblemImage(question), margin, y, pageWidth - margin * 2, dims);
-
-  const text = (question['Extracted Text'] || '').trim();
-  y = addTextWithPaging(pdf, text, margin, y, pageWidth - margin * 2, dims);
-
-  pdf.setFontSize(11);
-  y = addHeadingWithPaging(pdf, '答案／詳解', margin, y, dims);
-  y = await appendImageWithPaging(pdf, getAnswerImage(question), margin, y, pageWidth - margin * 2, dims);
-  y = await appendImageWithPaging(pdf, getSolutionImage(question), margin, y, pageWidth - margin * 2, dims);
-}
-
-async function renderDoubleColumn(pdf, question, dims) {
-  const { pageWidth, pageHeight, margin } = dims;
-  const columnWidth = (pageWidth - margin * 3) / 2;
-  const xLeft = margin;
-  const xRight = margin * 2 + columnWidth;
-  let yLeft = margin;
-  let yRight = margin;
-  const meta = `${question.Year || '-'} / ${question.School || '-'} / ${question.Chapter || '-'}`;
-  const qid = getQID(question);
-
-  const resetPage = () => {
-    pdf.addPage();
-    yLeft = margin;
-    yRight = margin;
-    pdf.setFontSize(12);
-    pdf.text(meta, xLeft, yLeft);
-    pdf.text(`Q_ID: ${qid}`, xLeft, yLeft + 14);
-    yLeft += 22;
-  };
-
-  pdf.setFontSize(12);
-  pdf.text(meta, xLeft, yLeft);
-  pdf.text(`Q_ID: ${qid}`, xLeft, yLeft + 14);
-  yLeft += 22;
-
-  yLeft = await appendImageInColumn(pdf, getProblemImage(question), xLeft, yLeft, columnWidth, () => {
-    resetPage();
-  }, 'left', { pageHeight, margin });
-
-  const text = (question['Extracted Text'] || '').trim();
-  yLeft = addTextInColumn(pdf, text, xLeft, yLeft, columnWidth, () => {
-    resetPage();
-  }, 'left', { pageHeight, margin });
-
-  pdf.setFontSize(11);
-  yRight = addHeadingInColumn(pdf, '答案／詳解', xRight, yRight, columnWidth, () => {
-    resetPage();
-  }, 'right', { pageHeight, margin });
-  yRight = await appendImageInColumn(pdf, getAnswerImage(question), xRight, yRight, columnWidth, () => {
-    resetPage();
-  }, 'right', { pageHeight, margin });
-  yRight = await appendImageInColumn(pdf, getSolutionImage(question), xRight, yRight, columnWidth, () => {
-    resetPage();
-  }, 'right', { pageHeight, margin });
 }
 
 function addHeadingWithPaging(pdf, text, x, y, dims) {
@@ -1697,10 +1723,12 @@ function renderLogPage() {
   const dates = [...new Set(practiceLog.map(l => l.Date).filter(Boolean))].sort((a, b) => b.localeCompare(a));
   dateList.innerHTML = '';
   items.innerHTML = '';
+  const btnReplay = document.getElementById('btn-log-replay');
 
   if (dates.length === 0) {
     document.getElementById('log-selected-date').textContent = '尚無紀錄';
     items.innerHTML = '<div class="small">目前沒有練習紀錄。</div>';
+    if (btnReplay) btnReplay.disabled = true;
     return;
   }
 
@@ -1714,6 +1742,7 @@ function renderLogPage() {
     dateList.appendChild(li);
   });
 
+  if (btnReplay) btnReplay.disabled = false;
   renderLogDate(dates[0]);
 }
 
@@ -1721,6 +1750,7 @@ function renderLogDate(date) {
   const items = document.getElementById('log-items');
   if (!items) return;
 
+  currentLogDate = date;
   document.getElementById('log-selected-date').textContent = date;
   const logs = practiceLog
     .filter(l => l.Date === date)
@@ -1743,13 +1773,16 @@ function renderLogDate(date) {
         <span>${log.Result || ''}</span>
         <span>${stars}</span>
         <span>${timeMin} 分鐘</span>
-        <button class="win98-button small" data-qid="${log.Q_ID || ''}">預覽</button>
+        <div class="log-item-actions">
+          <button class="win98-button small log-view-btn" data-qid="${log.Q_ID || ''}">預覽</button>
+          <button class="win98-button small log-redo-btn" data-qid="${log.Q_ID || ''}">重做</button>
+        </div>
       </div>
       <div class="log-item-note small">${log.Note || log.Notes || ''}</div>
     `;
-    const btn = div.querySelector('button');
-    if (btn) {
-      btn.addEventListener('click', () => {
+    const viewBtn = div.querySelector('.log-view-btn');
+    if (viewBtn) {
+      viewBtn.addEventListener('click', () => {
         const question = allQuestions.find(item => getQID(item) === log.Q_ID);
         if (question) {
           const src = question['Problem Image'] || '';
@@ -1757,8 +1790,49 @@ function renderLogDate(date) {
         }
       });
     }
+    const redoBtn = div.querySelector('.log-redo-btn');
+    if (redoBtn) {
+      redoBtn.addEventListener('click', () => redoSingleQuestion(log.Q_ID));
+    }
     items.appendChild(div);
   });
+}
+
+function redoLogQuestions() {
+  if (!currentLogDate) {
+    showMessage('提示', '請先選擇要重做的日期。');
+    return;
+  }
+  const logs = practiceLog
+    .filter(l => l.Date === currentLogDate)
+    .sort((a, b) => (a.StartAt || '').localeCompare(b.StartAt || ''));
+  const seen = new Set();
+  const questions = [];
+  logs.forEach(log => {
+    const qid = log.Q_ID;
+    if (seen.has(qid)) return;
+    seen.add(qid);
+    const q = allQuestions.find(item => getQID(item) === qid);
+    if (q) questions.push(q);
+  });
+
+  if (questions.length === 0) {
+    showMessage('提示', '找不到該日期的題目，可能題庫已變更。');
+    return;
+  }
+  isBrowseMode = false;
+  startPracticeWithQuestions(questions);
+  showMessage('開始重做', `已載入 ${questions.length} 題，順序依該日記錄。`);
+}
+
+function redoSingleQuestion(qid) {
+  const q = allQuestions.find(item => getQID(item) === qid);
+  if (!q) {
+    showMessage('提示', '題目不存在於目前題庫。');
+    return;
+  }
+  isBrowseMode = false;
+  startPracticeWithQuestions([q]);
 }
 
 // ==================== Hobbit Log ====================

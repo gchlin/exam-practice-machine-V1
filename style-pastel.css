@@ -326,6 +326,27 @@ textarea.win98-input {
   box-shadow: 0 4px 12px rgba(255, 105, 180, 0.08);
 }
 
+#questions-table {
+  min-width: 1100px;
+}
+
+.col-num {
+  display: none;
+}
+
+.log-details-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.log-details-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
 /* ==================== 緊湊表格 ==================== */
 .compact-table {
   width: 100%;
