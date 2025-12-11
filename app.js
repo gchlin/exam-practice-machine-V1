@@ -19,6 +19,8 @@ let hobbitLog = [];
 let currentLogDate = null;
 let pdfFontReady = false;
 let pdfFontData = null;
+const pdfFontFileName = 'lxgwwenkai-lite-regular.ttf';
+const pdfFontName = 'LXGW';
 
 // 練習狀態
 let sessionStartTime = null;
@@ -1180,8 +1182,8 @@ async function ensurePdfFont(pdf) {
       }
       pdfFontData = btoa(binary);
     }
-    pdf.addFileToVFS('NotoSansTC.ttf', pdfFontData);
-    pdf.addFont('NotoSansTC.ttf', 'NotoSansTC', 'normal');
+    pdf.addFileToVFS(pdfFontFileName, pdfFontData);
+    pdf.addFont(pdfFontFileName, pdfFontName, 'normal');
     pdfFontReady = true;
     setPdfFont(pdf);
   } catch (e) {
@@ -1192,7 +1194,7 @@ async function ensurePdfFont(pdf) {
 
 function setPdfFont(pdf) {
   try {
-    pdf.setFont('NotoSansTC', 'normal');
+    pdf.setFont(pdfFontName, 'normal');
   } catch (e) {
     pdf.setFont('Helvetica', '');
   }
