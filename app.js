@@ -133,6 +133,10 @@ function bindEvents() {
   document.getElementById('btn-save-note').addEventListener('click', saveCurrentNote);
   document.getElementById('btn-save-later').addEventListener('click', saveForLater);
   document.getElementById('btn-end-session').addEventListener('click', endSession);
+  const btnExportPdf = document.getElementById('btn-export-pdf');
+  if (btnExportPdf) btnExportPdf.addEventListener('click', openExportModal);
+  const btnExportConfirm = document.getElementById('btn-export-confirm');
+  if (btnExportConfirm) btnExportConfirm.addEventListener('click', startExportPDF);
   // 手機瀏覽頁
   const mbPrevBtn = document.getElementById('mb-prev');
   const mbNextBtn = document.getElementById('mb-next');
@@ -490,9 +494,10 @@ function initFilters() {
   
   populateSelect('filter-year', years);
   populateSelect('filter-school', schools);
+  populateRecruitmentSelect();
   populateSelect('filter-chapter', chapters);
   populateSelect('random-chapter', chapters);
-  populateSelect('filter-type', types);
+  populateTypeSelect('filter-type', types);
 }
 
 function populateSelect(id, options) {
@@ -509,11 +514,42 @@ function populateSelect(id, options) {
   });
 }
 
+function populateTypeSelect(id, options) {
+  const select = document.getElementById(id);
+  const firstOption = select.querySelector('option');
+  select.innerHTML = '';
+  if (firstOption) select.appendChild(firstOption);
+
+  options.forEach(opt => {
+    const option = document.createElement('option');
+    option.value = opt;
+    option.textContent = getTypeLabel(opt);
+    select.appendChild(option);
+  });
+}
+
+function populateRecruitmentSelect() {
+  const select = document.getElementById('filter-recruitment');
+  if (!select) return;
+
+  const firstOption = select.querySelector('option');
+  select.innerHTML = '';
+  if (firstOption) select.appendChild(firstOption);
+
+  ['聯招', '獨招'].forEach(opt => {
+    const option = document.createElement('option');
+    option.value = opt;
+    option.textContent = opt;
+    select.appendChild(option);
+  });
+}
+
 // ==================== 篩選功能 ====================
 
 function applyFilters() {
   const year = document.getElementById('filter-year').value;
   const school = document.getElementById('filter-school').value;
+  const recruitment = document.getElementById('filter-recruitment').value;
   const chapter = document.getElementById('filter-chapter').value;
   const status = document.getElementById('filter-status').value;
   const type = document.getElementById('filter-type').value;
@@ -526,6 +562,7 @@ function applyFilters() {
     
     if (year && q.Year !== year) return false;
     if (school && q.School !== school) return false;
+    if (recruitment && getRecruitmentType(q.School || '') !== recruitment) return false;
     if (chapter && q.Chapter !== chapter) return false;
     if (type && (q['Question Type'] || '') !== type) return false;
     if (lang && getLanguage(q) !== lang) return false;
@@ -555,6 +592,7 @@ function applyFilters() {
 function resetFilters() {
   document.getElementById('filter-year').value = '';
   document.getElementById('filter-school').value = '';
+  document.getElementById('filter-recruitment').value = '';
   document.getElementById('filter-chapter').value = '';
   document.getElementById('filter-status').value = '';
   document.getElementById('filter-type').value = '';
@@ -652,6 +690,17 @@ function updateStatistics() {
   
   const selectedCount = document.querySelectorAll('.question-checkbox:checked').length;
   document.getElementById('selected-count').textContent = selectedCount;
+}
+
+function getSelectedQuestions() {
+  const checkboxes = document.querySelectorAll('.question-checkbox:checked');
+  const selected = [];
+  checkboxes.forEach(cb => {
+    const qid = cb.dataset.qid;
+    const q = allQuestions.find(item => getQID(item) === qid);
+    if (q) selected.push(q);
+  });
+  return selected;
 }
 
 // ==================== 隨機模式 ====================
@@ -789,6 +838,312 @@ function startPracticeWithQuestions(questions) {
     showPage('predict');
     renderPredictPage();
   }
+}
+
+// ==================== 匯出 PDF ====================
+
+function openExportModal() {
+  const selected = getSelectedQuestions();
+  if (selected.length === 0) {
+    showMessage('提示', '請先勾選要匯出的題目！');
+    return;
+  }
+  const hint = document.getElementById('export-selection-hint');
+  if (hint) hint.textContent = `已選 ${selected.length} 題`;
+  const modal = document.getElementById('export-modal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeExportModal() {
+  const modal = document.getElementById('export-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+async function startExportPDF() {
+  const selected = getSelectedQuestions();
+  if (selected.length === 0) {
+    closeExportModal();
+    showMessage('提示', '請先勾選要匯出的題目！');
+    return;
+  }
+  const layoutEl = document.querySelector('input[name="export-layout"]:checked');
+  const layout = layoutEl ? layoutEl.value : 'single';
+  closeExportModal();
+  try {
+    await exportSelectedPDF(selected, layout);
+  } catch (error) {
+    console.error('匯出 PDF 失敗:', error);
+    showMessage('錯誤', '匯出 PDF 失敗，請稍後再試或檢查圖片來源。');
+  }
+}
+
+async function exportSelectedPDF(questions, layout) {
+  const { jsPDF } = window.jspdf || {};
+  if (!jsPDF) {
+    showMessage('錯誤', '未載入 jsPDF，請確認網路連線或稍後再試。');
+    return;
+  }
+
+  const orientation = layout === 'double' ? 'landscape' : 'portrait';
+  const pdf = new jsPDF({ unit: 'pt', format: 'a4', orientation });
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = 36;
+
+  for (let i = 0; i < questions.length; i++) {
+    if (i > 0) pdf.addPage();
+    if (layout === 'double') {
+      await renderDoubleColumn(pdf, questions[i], { pageWidth, pageHeight, margin });
+    } else {
+      await renderSingleColumn(pdf, questions[i], { pageWidth, pageHeight, margin });
+    }
+  }
+
+  pdf.save(`shuatiji-selected-${formatDateForFilename(new Date())}.pdf`);
+  showMessage('完成', 'PDF 已匯出並下載。');
+}
+
+async function renderSingleColumn(pdf, question, dims) {
+  const { pageWidth, pageHeight, margin } = dims;
+  let y = margin;
+  const meta = `${question.Year || '-'} / ${question.School || '-'} / ${question.Chapter || '-'}`;
+  pdf.setFontSize(12);
+  pdf.text(meta, margin, y);
+  y += 16;
+  pdf.setFontSize(10);
+  pdf.text(`Q_ID: ${getQID(question)}`, margin, y);
+  y += 14;
+
+  y = await appendImageWithPaging(pdf, getProblemImage(question), margin, y, pageWidth - margin * 2, dims);
+
+  const text = (question['Extracted Text'] || '').trim();
+  y = addTextWithPaging(pdf, text, margin, y, pageWidth - margin * 2, dims);
+
+  pdf.setFontSize(11);
+  y = addHeadingWithPaging(pdf, '答案／詳解', margin, y, dims);
+  y = await appendImageWithPaging(pdf, getAnswerImage(question), margin, y, pageWidth - margin * 2, dims);
+  y = await appendImageWithPaging(pdf, getSolutionImage(question), margin, y, pageWidth - margin * 2, dims);
+}
+
+async function renderDoubleColumn(pdf, question, dims) {
+  const { pageWidth, pageHeight, margin } = dims;
+  const columnWidth = (pageWidth - margin * 3) / 2;
+  const xLeft = margin;
+  const xRight = margin * 2 + columnWidth;
+  let yLeft = margin;
+  let yRight = margin;
+  const meta = `${question.Year || '-'} / ${question.School || '-'} / ${question.Chapter || '-'}`;
+  const qid = getQID(question);
+
+  const resetPage = () => {
+    pdf.addPage();
+    yLeft = margin;
+    yRight = margin;
+    pdf.setFontSize(12);
+    pdf.text(meta, xLeft, yLeft);
+    pdf.text(`Q_ID: ${qid}`, xLeft, yLeft + 14);
+    yLeft += 22;
+  };
+
+  pdf.setFontSize(12);
+  pdf.text(meta, xLeft, yLeft);
+  pdf.text(`Q_ID: ${qid}`, xLeft, yLeft + 14);
+  yLeft += 22;
+
+  yLeft = await appendImageInColumn(pdf, getProblemImage(question), xLeft, yLeft, columnWidth, () => {
+    resetPage();
+  }, 'left', { pageHeight, margin });
+
+  const text = (question['Extracted Text'] || '').trim();
+  yLeft = addTextInColumn(pdf, text, xLeft, yLeft, columnWidth, () => {
+    resetPage();
+  }, 'left', { pageHeight, margin });
+
+  pdf.setFontSize(11);
+  yRight = addHeadingInColumn(pdf, '答案／詳解', xRight, yRight, columnWidth, () => {
+    resetPage();
+  }, 'right', { pageHeight, margin });
+  yRight = await appendImageInColumn(pdf, getAnswerImage(question), xRight, yRight, columnWidth, () => {
+    resetPage();
+  }, 'right', { pageHeight, margin });
+  yRight = await appendImageInColumn(pdf, getSolutionImage(question), xRight, yRight, columnWidth, () => {
+    resetPage();
+  }, 'right', { pageHeight, margin });
+}
+
+function addHeadingWithPaging(pdf, text, x, y, dims) {
+  const { pageHeight, margin } = dims;
+  if (y + 18 > pageHeight - margin) {
+    pdf.addPage();
+    y = margin;
+  }
+  pdf.setFontSize(11);
+  pdf.text(text, x, y);
+  return y + 12;
+}
+
+function addHeadingInColumn(pdf, text, x, y, width, addPageFn, side, dims) {
+  const { pageHeight, margin } = dims;
+  if (y + 18 > pageHeight - margin) {
+    addPageFn();
+    y = side === 'left' ? margin : margin;
+  }
+  pdf.setFontSize(11);
+  pdf.text(text, x, y);
+  return y + 12;
+}
+
+function addTextWithPaging(pdf, text, x, y, maxWidth, dims) {
+  const { pageHeight, margin } = dims;
+  if (!text) return y;
+  const lines = pdf.splitTextToSize(text, maxWidth);
+  const lineHeight = 14;
+  const blockHeight = lines.length * lineHeight;
+  if (y + blockHeight > pageHeight - margin) {
+    pdf.addPage();
+    y = margin;
+  }
+  pdf.setFontSize(10);
+  pdf.text(lines, x, y);
+  return y + blockHeight + 10;
+}
+
+function addTextInColumn(pdf, text, x, y, maxWidth, addPageFn, side, dims) {
+  const { pageHeight, margin } = dims;
+  if (!text) return y;
+  const lines = pdf.splitTextToSize(text, maxWidth);
+  const lineHeight = 14;
+  const blockHeight = lines.length * lineHeight;
+  if (y + blockHeight > pageHeight - margin) {
+    addPageFn();
+    y = margin;
+  }
+  pdf.setFontSize(10);
+  pdf.text(lines, x, y);
+  return y + blockHeight + 10;
+}
+
+async function appendImageWithPaging(pdf, src, x, y, maxWidth, dims) {
+  const { pageHeight, margin } = dims;
+  if (!src) return y;
+  const imgMeta = await loadImageMeta(src);
+  if (!imgMeta) return y;
+
+  const ratio = Math.min(
+    maxWidth / imgMeta.width,
+    (pageHeight - margin - y) / imgMeta.height
+  );
+
+  let renderWidth = imgMeta.width * ratio;
+  let renderHeight = imgMeta.height * ratio;
+
+  if (renderHeight <= 0 || renderWidth <= 0) return y;
+
+  if (y + renderHeight > pageHeight - margin) {
+    pdf.addPage();
+    y = margin;
+    const ratioNew = Math.min(
+      maxWidth / imgMeta.width,
+      (pageHeight - margin - y) / imgMeta.height
+    );
+    renderWidth = imgMeta.width * ratioNew;
+    renderHeight = imgMeta.height * ratioNew;
+  }
+
+  pdf.addImage(imgMeta.dataUrl, imgMeta.format, x, y, renderWidth, renderHeight, undefined, 'FAST');
+  return y + renderHeight + 10;
+}
+
+async function appendImageInColumn(pdf, src, x, y, maxWidth, addPageFn, side, dims) {
+  const { pageHeight, margin } = dims;
+  if (!src) return y;
+  const imgMeta = await loadImageMeta(src);
+  if (!imgMeta) return y;
+
+  const ratio = Math.min(
+    maxWidth / imgMeta.width,
+    (pageHeight - margin - y) / imgMeta.height
+  );
+
+  let renderWidth = imgMeta.width * ratio;
+  let renderHeight = imgMeta.height * ratio;
+
+  if (renderHeight <= 0 || renderWidth <= 0) return y;
+
+  if (y + renderHeight > pageHeight - margin) {
+    addPageFn();
+    y = margin;
+    const ratioNew = Math.min(
+      maxWidth / imgMeta.width,
+      (pageHeight - margin - y) / imgMeta.height
+    );
+    renderWidth = imgMeta.width * ratioNew;
+    renderHeight = imgMeta.height * ratioNew;
+  }
+
+  pdf.addImage(imgMeta.dataUrl, imgMeta.format, x, y, renderWidth, renderHeight, undefined, 'FAST');
+  return y + renderHeight + 10;
+}
+
+async function loadImageMeta(url) {
+  try {
+    const dataUrl = await loadImageAsDataURL(url);
+    if (!dataUrl) return null;
+    const img = await loadImageElement(dataUrl);
+    const format = dataUrl.startsWith('data:image/jpeg') ? 'JPEG' : 'PNG';
+    return {
+      dataUrl,
+      width: img.naturalWidth || img.width,
+      height: img.naturalHeight || img.height,
+      format
+    };
+  } catch (e) {
+    console.warn('無法載入圖片:', url, e);
+    return null;
+  }
+}
+
+function loadImageAsDataURL(url) {
+  return new Promise((resolve) => {
+    fetch(url)
+      .then(res => res.blob())
+      .then(blob => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(blob);
+      })
+      .catch(() => resolve(null));
+  });
+}
+
+function loadImageElement(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+}
+
+function getProblemImage(q) {
+  return q['Problem Image'] || q['題目圖片'] || q['問題圖片'] || q['ProblemImage'] || '';
+}
+
+function getAnswerImage(q) {
+  return q['Answer Image'] || q['解答圖片'] || q['AnswerImage'] || '';
+}
+
+function getSolutionImage(q) {
+  return q['Solution Image'] || q['詳解圖片'] || q['SolutionImage'] || '';
+}
+
+function getTypeLabel(typeValue) {
+  const v = String(typeValue);
+  if (v === '0') return '0無解答';
+  if (v === '1') return '1填充題';
+  if (v === '2') return '2選擇題';
+  return v;
 }
 
 // ==================== 手機瀏覽模式 ====================
@@ -1654,6 +2009,11 @@ function getLanguage(question) {
   const text = (question['Extracted Text'] || question['Display Name'] || '').trim();
   if (!text) return '';
   return /[\u4e00-\u9fff]/.test(text) ? 'zh' : 'en';
+}
+
+function getRecruitmentType(schoolName) {
+  if (!schoolName) return '';
+  return schoolName.includes('聯招') ? '聯招' : '獨招';
 }
 
 function isPracticed(qid) {
