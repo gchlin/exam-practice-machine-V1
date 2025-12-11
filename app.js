@@ -17,6 +17,8 @@ let practiceLog = [];
 let predictLog = [];
 let hobbitLog = [];
 let currentLogDate = null;
+let pdfFontReady = false;
+let pdfFontData = null;
 
 // 練習狀態
 let sessionStartTime = null;
@@ -948,6 +950,9 @@ async function exportSelectedPDF(questions) {
   const margin = 36;
   const maxWidth = pageWidth - margin * 2;
 
+  await ensurePdfFont(pdf);
+  setPdfFont(pdf);
+
   // 第一部分：流水號 + 題目圖片（相同寬度往下排）
   let y = margin;
   pdf.setFontSize(14);
@@ -960,6 +965,7 @@ async function exportSelectedPDF(questions) {
     const qid = getQID(q);
     if (y + 40 > pageHeight - margin) {
       pdf.addPage();
+      setPdfFont(pdf);
       y = margin;
     }
     pdf.setFontSize(11);
@@ -970,6 +976,7 @@ async function exportSelectedPDF(questions) {
 
   // 第二部分：答案表格（流水號 + 答案圖片）
   pdf.addPage();
+  setPdfFont(pdf);
   y = margin;
   pdf.setFontSize(14);
   pdf.text('答案', margin, y);
@@ -981,6 +988,7 @@ async function exportSelectedPDF(questions) {
     const answerSrc = getAnswerImage(q) || getSolutionImage(q);
     if (y + 40 > pageHeight - margin) {
       pdf.addPage();
+      setPdfFont(pdf);
       y = margin;
     }
     pdf.setFontSize(11);
@@ -1067,6 +1075,7 @@ async function appendImageWithPaging(pdf, src, x, y, maxWidth, dims) {
 
   if (y + renderHeight > pageHeight - margin) {
     pdf.addPage();
+    setPdfFont(pdf);
     y = margin;
     const ratioNew = Math.min(
       maxWidth / imgMeta.width,
@@ -1098,6 +1107,7 @@ async function appendImageInColumn(pdf, src, x, y, maxWidth, addPageFn, side, di
 
   if (y + renderHeight > pageHeight - margin) {
     addPageFn();
+    setPdfFont(pdf);
     y = margin;
     const ratioNew = Math.min(
       maxWidth / imgMeta.width,
@@ -1150,6 +1160,42 @@ function loadImageElement(dataUrl) {
     img.onerror = reject;
     img.src = dataUrl;
   });
+}
+
+async function ensurePdfFont(pdf) {
+  if (pdfFontReady) {
+    setPdfFont(pdf);
+    return;
+  }
+  try {
+    if (!pdfFontData) {
+      const fontUrl = 'https://cdn.jsdelivr.net/gh/lxgw/LxgwWenKai-Lite@v1.235/lxgwwenkai-lite-regular.ttf';
+      const res = await fetch(fontUrl);
+      const buffer = await res.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      let binary = '';
+      const chunk = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunk) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+      }
+      pdfFontData = btoa(binary);
+    }
+    pdf.addFileToVFS('NotoSansTC.ttf', pdfFontData);
+    pdf.addFont('NotoSansTC.ttf', 'NotoSansTC', 'normal');
+    pdfFontReady = true;
+    setPdfFont(pdf);
+  } catch (e) {
+    console.warn('載入中文字型失敗，將使用預設字型：', e);
+    pdfFontReady = false;
+  }
+}
+
+function setPdfFont(pdf) {
+  try {
+    pdf.setFont('NotoSansTC', 'normal');
+  } catch (e) {
+    pdf.setFont('Helvetica', '');
+  }
 }
 
 function getProblemImage(q) {
