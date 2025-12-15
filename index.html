@@ -132,9 +132,37 @@
 
         <!-- 工具列 -->
         <div class="toolbar">
-          <!-- 篩選 -->
+          <!-- 主篩選 -->
           <div class="toolbar-group">
-            <span class="label">篩選：</span>
+            <span class="label">主要篩選：</span>
+            <label class="small">
+              章節
+              <select id="filter-chapter" class="win98-input">
+                <option value="">全部</option>
+              </select>
+            </label>
+            <label class="small">
+              作答狀態
+              <select id="filter-status" class="win98-input">
+                <option value="">全部</option>
+                <option value="last-correct">上次對</option>
+                <option value="last-wrong">上次錯</option>
+                <option value="never">沒做過</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="toolbar-group">
+            <button id="btn-apply-filter" class="win98-button">套用篩選</button>
+            <button id="btn-reset-filter" class="win98-button">重設</button>
+            <button id="btn-toggle-advanced" class="win98-button">進階篩選</button>
+            <button id="btn-export-pdf" class="win98-button">匯出 PDF</button>
+          </div>
+        </div>
+
+        <div class="toolbar" id="advanced-filters" style="display: none;">
+          <div class="toolbar-group">
+            <span class="label">進階：</span>
             <label class="small">
               年份
               <select id="filter-year" class="win98-input">
@@ -148,31 +176,16 @@
               </select>
             </label>
             <label class="small">
-              甄選
+              招考
               <select id="filter-recruitment" class="win98-input">
                 <option value="">全部</option>
-                <option value="聯招">聯招</option>
-                <option value="獨招">獨招</option>
-              </select>
-            </label>
-            <label class="small">
-              章節
-              <select id="filter-chapter" class="win98-input">
-                <option value="">全部</option>
+                <option value="公考">公考</option>
+                <option value="校考">校考</option>
               </select>
             </label>
           </div>
 
-          <!-- 狀態篩選 -->
           <div class="toolbar-group">
-            <label class="small">
-              狀態
-              <select id="filter-status" class="win98-input">
-                <option value="">全部</option>
-                <option value="practiced">已練習</option>
-                <option value="unpracticed">未練習</option>
-              </select>
-            </label>
             <label class="small">
               題型
               <select id="filter-type" class="win98-input">
@@ -188,75 +201,39 @@
               </select>
             </label>
             <label class="small">
-              星等
+              難度
               <select id="filter-rating" class="win98-input">
                 <option value="">全部</option>
-                <option value="1">1 星</option>
-                <option value="2">2 星</option>
-                <option value="3">3 星</option>
-                <option value="4">4 星</option>
-                <option value="5">5 星</option>
+                <option value="1">1 ★</option>
+                <option value="2">2 ★</option>
+                <option value="3">3 ★</option>
+                <option value="4">4 ★</option>
+                <option value="5">5 ★</option>
               </select>
             </label>
           </div>
 
-          <!-- 搜尋 -->
           <div class="toolbar-group">
             <label class="small">
-              搜尋題目／筆記
-              <input type="text" id="filter-search" class="win98-input" placeholder="題目/文字/筆記關鍵字">
+              搜尋題目／文字／筆記
+              <input type="text" id="filter-search" class="win98-input" placeholder="題目/關鍵字/筆記關鍵字">
             </label>
           </div>
-
-          <button id="btn-apply-filter" class="win98-button">套用篩選</button>
-          <button id="btn-reset-filter" class="win98-button">重設</button>
-          <button id="btn-export-pdf" class="win98-button">匯出 PDF</button>
         </div>
 
         <!-- 練習模式 -->
         <div class="toolbar mt-4">
           <div class="toolbar-group">
-            <span class="label">隨機3題：</span>
-            <select id="random-mode" class="win98-input">
-              <option value="all">總題庫隨機</option>
-              <option value="chapter">指定章節隨機</option>
-              <option value="difficulty">指定難度隨機</option>
-              <option value="unpracticed">未練習隨機</option>
-            </select>
+            <span class="label">練習模式：</span>
           </div>
 
-          <!-- 章節選擇（章節隨機時顯示） -->
-          <div class="toolbar-group" id="random-chapter-group" style="display: none;">
-            <label class="small">
-              章節
-              <select id="random-chapter" class="win98-input">
-                <option value="">請選擇</option>
-              </select>
-            </label>
-          </div>
-
-          <!-- 難度選擇（難度隨機時顯示） -->
-          <div class="toolbar-group" id="random-difficulty-group" style="display: none;">
-            <label class="small">
-              難度
-              <select id="random-difficulty" class="win98-input">
-                <option value="1">1 星</option>
-                <option value="2">2 星</option>
-                <option value="3">3 星</option>
-                <option value="4">4 星</option>
-                <option value="5">5 星</option>
-              </select>
-            </label>
-          </div>
-
-          <button id="btn-random-3" class="win98-button">隨機3題</button>
-          <button id="btn-start-selected" class="win98-button">開始練習選中題目</button>
+          <button id="btn-random-3" class="win98-button">新題模式</button>
+          <button id="btn-start-selected" class="win98-button">開始練習勾選題目</button>
           <button id="btn-start-browse" class="win98-button">瀏覽模式</button>
-          <button id="btn-start-mobile-browse" class="win98-button">手機瀏覽模式</button>
+          <button id="btn-start-mobile-browse" class="win98-button">觸控瀏覽模式</button>
           <button id="btn-view-log" class="win98-button">查看練習紀錄</button>
         </div>
 
-        <!-- 顯示選項 -->
         <div class="display-options mt-4">
           <label class="small">
             <input type="checkbox" id="show-image" checked>
@@ -617,6 +594,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="export.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

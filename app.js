@@ -17,10 +17,6 @@ let practiceLog = [];
 let predictLog = [];
 let hobbitLog = [];
 let currentLogDate = null;
-let pdfFontReady = false;
-let pdfFontData = null;
-const pdfFontFileName = 'lxgwwenkai-lite-regular.ttf';
-const pdfFontName = 'LXGW';
 
 // 練習狀態
 let sessionStartTime = null;
@@ -39,6 +35,10 @@ let mobileBrowseQuestions = [];
 let mobileBrowseIndex = 0;
 let mobileBrowseTimes = {};
 let mobileQuestionStartTime = null;
+
+// 快取：每題狀態與每日統計
+let statusMap = {};
+let dailyStats = {};
 
 // 未完成會話
 let unfinishedSession = null;
@@ -86,12 +86,17 @@ function bindEvents() {
   // 篩選
   document.getElementById('btn-apply-filter').addEventListener('click', applyFilters);
   document.getElementById('btn-reset-filter').addEventListener('click', resetFilters);
+  const btnToggleAdvanced = document.getElementById('btn-toggle-advanced');
+  if (btnToggleAdvanced) {
+    btnToggleAdvanced.addEventListener('click', toggleAdvancedFilters);
+  }
   
   // 全選
   document.getElementById('chk-all').addEventListener('change', toggleSelectAll);
   
   // 隨機模式切換
-  document.getElementById('random-mode').addEventListener('change', updateRandomOptions);
+  const randomModeSelect = document.getElementById('random-mode');
+  if (randomModeSelect) randomModeSelect.addEventListener('change', updateRandomOptions);
   
   // 隨機3題
   document.getElementById('btn-random-3').addEventListener('click', startRandom3);
@@ -143,9 +148,21 @@ function bindEvents() {
   document.getElementById('btn-save-later').addEventListener('click', saveForLater);
   document.getElementById('btn-end-session').addEventListener('click', endSession);
   const btnExportPdf = document.getElementById('btn-export-pdf');
-  if (btnExportPdf) btnExportPdf.addEventListener('click', openExportModal);
+  if (btnExportPdf) btnExportPdf.addEventListener('click', () => {
+    if (typeof openExportModal === 'function') {
+      openExportModal();
+    } else {
+      showMessage('錯誤', '匯出模組未載入，請重新整理或檢查 export.js 載入順序。');
+    }
+  });
   const btnExportConfirm = document.getElementById('btn-export-confirm');
-  if (btnExportConfirm) btnExportConfirm.addEventListener('click', startExportPDF);
+  if (btnExportConfirm) btnExportConfirm.addEventListener('click', () => {
+    if (typeof startExportPDF === 'function') {
+      startExportPDF();
+    } else {
+      showMessage('錯誤', '匯出模組未載入，請重新整理或檢查 export.js 載入順序。');
+    }
+  });
   // 手機瀏覽頁
   const mbPrevBtn = document.getElementById('mb-prev');
   const mbNextBtn = document.getElementById('mb-next');
@@ -302,12 +319,15 @@ function saveToLocalStorage() {
     localStorage.setItem('predictLog', JSON.stringify(predictLog));
     localStorage.setItem('hobbitLog', JSON.stringify(hobbitLog));
     localStorage.setItem('unfinishedSession', JSON.stringify(unfinishedSession));
-    console.log('資料已儲存');
+    localStorage.setItem('statusMap', JSON.stringify(statusMap));
+    localStorage.setItem('dailyStats', JSON.stringify(dailyStats));
+    console.log('localStorage saved');
   } catch (e) {
-    console.error('儲存失敗:', e);
-    showMessage('錯誤', '資料儲存失敗，可能是儲存空間不足。');
+    console.error('save failed:', e);
+    showMessage('Error', 'Save failed, storage may be full or blocked by the browser');
   }
 }
+
 
 function loadFromLocalStorage() {
   try {
@@ -316,17 +336,131 @@ function loadFromLocalStorage() {
     const pr = localStorage.getItem('predictLog');
     const h = localStorage.getItem('hobbitLog');
     const u = localStorage.getItem('unfinishedSession');
-    
+    const s = localStorage.getItem('statusMap');
+    const d = localStorage.getItem('dailyStats');
+
     if (q) allQuestions = JSON.parse(q);
     if (p) practiceLog = JSON.parse(p);
     if (pr) predictLog = JSON.parse(pr);
     if (h) hobbitLog = JSON.parse(h);
     if (u) unfinishedSession = JSON.parse(u);
-    
-    console.log(`載入 ${allQuestions.length} 題`);
+    if (s) statusMap = JSON.parse(s);
+    if (d) dailyStats = JSON.parse(d);
+
+    if (!Array.isArray(allQuestions)) allQuestions = [];
+    if (!Array.isArray(practiceLog)) practiceLog = [];
+    if (!Array.isArray(predictLog)) predictLog = [];
+    if (!Array.isArray(hobbitLog)) hobbitLog = [];
+    if (!unfinishedSession) unfinishedSession = null;
+    if (!statusMap || typeof statusMap !== 'object') statusMap = {};
+    if (!dailyStats || typeof dailyStats !== 'object') dailyStats = {};
+
+    // Rebuild caches from practiceLog to stay compatible with old data
+    rebuildCachesFromLogs();
+
+    console.log(`Loaded ${allQuestions.length} questions`);
   } catch (e) {
-    console.error('載入失敗:', e);
+    console.error('load failed:', e);
   }
+}
+
+function rebuildCachesFromLogs() {
+  statusMap = {};
+  dailyStats = {};
+
+  if (!Array.isArray(practiceLog)) {
+    practiceLog = [];
+    return;
+  }
+
+  practiceLog.forEach(log => {
+    updateCachesWithLog(log);
+  });
+}
+
+function updateCachesWithLog(log) {
+  if (!log || typeof log !== 'object') return;
+  const qid = log.Q_ID || log.ExamID || log['題目ID'] || '';
+  if (!qid) return;
+
+  const dateStr = normalizeDate(log.Date);
+  const result = log.Result || null;
+  const entry = ensureStatusEntry(qid);
+
+  entry.attemptCount += 1;
+  entry.isPracticed = entry.attemptCount > 0;
+  entry.lastResult = result || entry.lastResult;
+  if (dateStr) {
+    entry.lastResultDate = pickLatestDate(entry.lastResultDate, dateStr);
+    if (result === 'Correct') {
+      entry.lastCorrectDate = pickLatestDate(entry.lastCorrectDate, dateStr);
+    } else if (result === 'Incorrect') {
+      entry.lastWrongDate = pickLatestDate(entry.lastWrongDate, dateStr);
+    }
+  }
+  if (result === 'Skipped') {
+    entry.skipCount += 1;
+  }
+  if (log.Note) entry.lastNote = log.Note;
+  if (Number(log.ActualDifficulty) > 0) entry.lastActualDifficulty = Number(log.ActualDifficulty);
+  if (Number(log.PredictedDifficulty) > 0) entry.lastPredictedDifficulty = Number(log.PredictedDifficulty);
+
+  if (dateStr) {
+    const day = ensureDailyStats(dateStr);
+    day.total += 1;
+    if (result === 'Correct') day.correct += 1;
+    else if (result === 'Incorrect') day.incorrect += 1;
+    else if (result === 'Skipped') day.skipped += 1;
+    else if (result === 'Browse') day.browse += 1;
+    day.seconds += Math.max(0, Number(log.TimeSeconds) || 0);
+    day.questionCount += 1;
+  }
+}
+
+function ensureStatusEntry(qid) {
+  if (!statusMap[qid]) {
+    statusMap[qid] = {
+      attemptCount: 0,
+      skipCount: 0,
+      lastResult: null,
+      lastResultDate: null,
+      lastCorrectDate: null,
+      lastWrongDate: null,
+      lastNote: '',
+      lastActualDifficulty: 0,
+      lastPredictedDifficulty: 0,
+      isPracticed: false
+    };
+  }
+  return statusMap[qid];
+}
+
+function ensureDailyStats(dateStr) {
+  if (!dailyStats[dateStr]) {
+    dailyStats[dateStr] = {
+      total: 0,
+      correct: 0,
+      incorrect: 0,
+      skipped: 0,
+      browse: 0,
+      seconds: 0,
+      questionCount: 0
+    };
+  }
+  return dailyStats[dateStr];
+}
+
+function normalizeDate(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString().split('T')[0];
+}
+
+function pickLatestDate(prev, next) {
+  if (!prev) return next;
+  if (!next) return prev;
+  return prev.localeCompare(next) < 0 ? next : prev;
 }
 
 // ==================== 載入題庫 ====================
@@ -341,16 +475,13 @@ async function loadQuestionBank() {
   progressFill.style.width = '0%';
   
   try {
-    let csvText;
-    
+    let csvText = '';
     if (mode === 'online') {
       progressText.textContent = '正在下載題庫...';
       progressFill.style.width = '25%';
-      
-      // 加上時間戳記避免快取
       const timestamp = new Date().getTime();
       const response = await fetch(`./data.csv?t=${timestamp}`, {
-        cache: 'no-store',  // 不使用快取
+        cache: 'no-store',
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
           'Pragma': 'no-cache'
@@ -360,78 +491,76 @@ async function loadQuestionBank() {
       csvText = await response.text();
     } else {
       const fileInput = document.getElementById('file-input');
-      if (!fileInput.files.length) {
+      if (!fileInput || !fileInput.files.length) {
         showMessage('錯誤', '請選擇 CSV 檔案');
         progressContainer.style.display = 'none';
         return;
       }
-      
       progressText.textContent = '正在讀取檔案...';
       progressFill.style.width = '25%';
-      
       csvText = await fileInput.files[0].text();
     }
-    
     progressText.textContent = '正在解析題庫...';
     progressFill.style.width = '50%';
-    
     allQuestions = parseCSV(csvText);
-    
     progressText.textContent = '正在儲存資料...';
     progressFill.style.width = '75%';
-    
     saveToLocalStorage();
-    
-    progressText.textContent = '載入完成！';
+    progressText.textContent = '載入完成';
     progressFill.style.width = '100%';
-    
     setTimeout(() => {
       showPage('list');
       initListPage();
-      showMessage('成功', `成功載入 ${allQuestions.length} 題！`);
+      showMessage('完成', `成功載入 ${allQuestions.length} 題。`);
     }, 500);
-    
   } catch (error) {
     console.error('載入失敗:', error);
     progressContainer.style.display = 'none';
-    showMessage('錯誤', `載入失敗: ${error.message}`);
+    if (location.protocol === 'file:') {
+      showMessage('錯誤', '本機 file:// 無法直接抓取 data.csv，請選擇「本地檔案」模式並挑選 CSV，或啟動本地伺服器（如 python -m http.server 8000 後以 http://localhost:8000 開啟）。');
+    } else {
+      showMessage('錯誤', `載入失敗: ${error.message}`);
+    }
   }
 }
 
+
 async function reloadQuestions() {
-  if (!confirm('確定要重新下載題庫嗎？\n\n這會清除快取並強制下載最新版本。\n（答題記錄不會被清除）')) {
+  if (!confirm('確定要重新載入題庫嗎？\n\n將清除快取並強制下載最新版本。\n（題目選取與狀態可能被清除）')) {
     return;
   }
-  
   try {
-    // 加上時間戳記強制重新下載
-    const timestamp = new Date().getTime();
-    const response = await fetch(`./data.csv?t=${timestamp}`, {
-      cache: 'no-store',
-      headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache'
-      }
-    });
-    
-    if (!response.ok) throw new Error('無法載入 data.csv');
-    
-    const csvText = await response.text();
+    let csvText = '';
+    const fileInput = document.getElementById('file-input');
+    if (fileInput && fileInput.files && fileInput.files.length > 0) {
+      csvText = await fileInput.files[0].text();
+    } else {
+      const timestamp = new Date().getTime();
+      const response = await fetch(`./data.csv?t=${timestamp}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
+      });
+      if (!response.ok) throw new Error('無法載入 data.csv');
+      csvText = await response.text();
+    }
     allQuestions = parseCSV(csvText);
-    
-    // 儲存到 localStorage
     saveToLocalStorage();
-    
-    // 重新初始化列表
     initListPage();
-    
-    showMessage('成功', `題庫已更新！\n共載入 ${allQuestions.length} 題`);
-    
+    showMessage('成功', `題庫已更新。\n目前題數 ${allQuestions.length} 題`);
   } catch (error) {
     console.error('更新失敗:', error);
-    showMessage('錯誤', `更新失敗: ${error.message}\n\n請檢查：\n1. data.csv 是否存在\n2. 網路連線是否正常\n3. GitHub Pages 是否已部署`);
+    if (location.protocol === 'file:') {
+      showMessage('錯誤', '更新失敗：本機 file:// 無法直接抓取 data.csv。請改用「本地檔案」模式選擇 data.csv，或啟動本地伺服器（例如 python -m http.server 8000 後以 http://localhost:8000 開啟）。');
+    } else {
+      showMessage('錯誤', `更新失敗: ${error.message}\n\n請檢查：\n1. data.csv 是否存在\n2. 網路是否正常\n3. GitHub Pages 是否已部署`);
+    }
   }
 }
+
+
 
 function parseCSV(csvText) {
   const lines = csvText.split('\n');
@@ -509,7 +638,9 @@ function initFilters() {
   populateSelect('filter-school', schools);
   populateRecruitmentSelect();
   populateSelect('filter-chapter', chapters);
-  populateSelect('random-chapter', chapters);
+  if (document.getElementById('random-chapter')) {
+    populateSelect('random-chapter', chapters);
+  }
   populateTypeSelect('filter-type', types);
 }
 
@@ -570,11 +701,11 @@ function populateRecruitmentSelect() {
 // ==================== 篩選功能 ====================
 
 function applyFilters() {
+  const chapter = document.getElementById('filter-chapter').value;
+  const status = document.getElementById('filter-status').value;
   const year = document.getElementById('filter-year').value;
   const school = document.getElementById('filter-school').value;
   const recruitment = document.getElementById('filter-recruitment').value;
-  const chapter = document.getElementById('filter-chapter').value;
-  const status = document.getElementById('filter-status').value;
   const type = document.getElementById('filter-type').value;
   const lang = document.getElementById('filter-lang').value;
   const rating = document.getElementById('filter-rating').value;
@@ -582,23 +713,31 @@ function applyFilters() {
   
   filteredQuestions = allQuestions.filter(q => {
     const qid = getQID(q);
+    const entry = statusMap[qid];
+    const attemptCount = entry ? entry.attemptCount : practiceLog.filter(log => log.Q_ID === qid).length;
+    const lastResult = entry ? entry.lastResult : getLastResultFromLogs(qid);
+    const statusBucket = attemptCount === 0
+      ? 'never'
+      : (lastResult === 'Correct' ? 'last-correct' : lastResult === 'Incorrect' ? 'last-wrong' : 'other');
+    
+    if (chapter && q.Chapter !== chapter) return false;
+
+    if (status === 'last-correct' && statusBucket !== 'last-correct') return false;
+    if (status === 'last-wrong' && statusBucket !== 'last-wrong') return false;
+    if (status === 'never' && statusBucket !== 'never') return false;
     
     if (year && q.Year !== year) return false;
     if (school && q.School !== school) return false;
     if (recruitment && getRecruitmentType(q.School || '') !== recruitment) return false;
-    if (chapter && q.Chapter !== chapter) return false;
     if (type && (q['Question Type'] || '') !== type) return false;
     if (lang && getLanguage(q) !== lang) return false;
-    
-    if (status === 'practiced' && !isPracticed(qid)) return false;
-    if (status === 'unpracticed' && isPracticed(qid)) return false;
     
     if (rating) {
       const userRating = getUserDifficulty(qid);
       if (String(userRating) !== rating) return false;
     }
     
-    // 搜尋題目／筆記
+    // ??????
     if (search) {
       const extractedText = (q['Extracted Text'] || '').toLowerCase();
       const displayName = (q['Display Name'] || '').toLowerCase();
@@ -612,6 +751,18 @@ function applyFilters() {
   renderQuestionList();
 }
 
+function toggleAdvancedFilters() {
+  const panel = document.getElementById('advanced-filters');
+  const btn = document.getElementById('btn-toggle-advanced');
+  if (!panel) return;
+  const shouldShow = panel.style.display === 'none' || !panel.style.display;
+  panel.style.display = shouldShow ? '' : 'none';
+  if (btn) {
+    btn.textContent = shouldShow ? '基本篩選' : '進階篩選';
+  }
+}
+
+
 function resetFilters() {
   document.getElementById('filter-year').value = '';
   document.getElementById('filter-school').value = '';
@@ -622,6 +773,10 @@ function resetFilters() {
   document.getElementById('filter-lang').value = '';
   document.getElementById('filter-rating').value = '';
   document.getElementById('filter-search').value = '';
+  const adv = document.getElementById('advanced-filters');
+  if (adv) adv.style.display = 'none';
+  const btn = document.getElementById('btn-toggle-advanced');
+  if (btn) btn.textContent = '進階篩選';
   
   applyFilters();
 }
@@ -774,53 +929,44 @@ function getSelectedQuestions() {
 // ==================== 隨機模式 ====================
 
 function updateRandomOptions() {
-  const mode = document.getElementById('random-mode').value;
+  const modeSelect = document.getElementById('random-mode');
+  if (!modeSelect) return;
+  const mode = modeSelect.value;
   
-  document.getElementById('random-chapter-group').style.display = 
-    mode === 'chapter' ? 'flex' : 'none';
-  document.getElementById('random-difficulty-group').style.display = 
-    mode === 'difficulty' ? 'flex' : 'none';
+  const chapterGroup = document.getElementById('random-chapter-group');
+  const difficultyGroup = document.getElementById('random-difficulty-group');
+  if (chapterGroup) {
+    chapterGroup.style.display = mode === 'chapter' ? 'flex' : 'none';
+  }
+  if (difficultyGroup) {
+    difficultyGroup.style.display = mode === 'difficulty' ? 'flex' : 'none';
+  }
 }
 
 function startRandom3() {
-  const mode = document.getElementById('random-mode').value;
-  let candidates = [];
-  
-  if (mode === 'all') {
-    // 總題庫隨機
-    candidates = [...allQuestions];
-  } else if (mode === 'chapter') {
-    // 指定章節隨機
-    const chapter = document.getElementById('random-chapter').value;
-    if (!chapter) {
-      showMessage('提示', '請選擇章節！');
-      return;
-    }
-    candidates = allQuestions.filter(q => q.Chapter === chapter);
-  } else if (mode === 'difficulty') {
-    // 指定難度隨機
-    const diff = document.getElementById('random-difficulty').value;
-    candidates = allQuestions.filter(q => q.Difficulty === diff);
-  } else if (mode === 'unpracticed') {
-    // 未練習隨機
-    candidates = allQuestions.filter(q => !isPracticed(getQID(q)));
-  }
-  
+  const candidates = allQuestions.filter(q => {
+    const qid = getQID(q);
+    const entry = statusMap[qid];
+    const attemptCount = entry ? entry.attemptCount : practiceLog.filter(log => log.Q_ID === qid).length;
+    return attemptCount === 0;
+  });
+
   if (candidates.length === 0) {
-    showMessage('提示', '沒有符合條件的題目！');
+    showMessage('??', '??????????');
     return;
   }
-  
-  // 隨機選3題
-  const selected = [];
+
   const shuffled = [...candidates].sort(() => Math.random() - 0.5);
-  for (let i = 0; i < Math.min(3, shuffled.length); i++) {
-    selected.push(shuffled[i]);
+  const selected = shuffled.slice(0, Math.min(3, shuffled.length));
+
+  if (selected.length < 3) {
+    showMessage('??', `?? ${selected.length} ?????????`);
   }
-  
+
   isBrowseMode = false;
   startPracticeWithQuestions(selected);
 }
+
 
 function startSelectedPractice() {
   const checkboxes = document.querySelectorAll('.question-checkbox:checked');
@@ -910,305 +1056,6 @@ function startPracticeWithQuestions(questions) {
 
 // ==================== 匯出 PDF ====================
 
-function openExportModal() {
-  const selected = getSelectedQuestions();
-  if (selected.length === 0) {
-    showMessage('提示', '請先勾選要匯出的題目！');
-    return;
-  }
-  const hint = document.getElementById('export-selection-hint');
-  if (hint) hint.textContent = `已選 ${selected.length} 題`;
-  const modal = document.getElementById('export-modal');
-  if (modal) modal.style.display = 'flex';
-}
-
-function closeExportModal() {
-  const modal = document.getElementById('export-modal');
-  if (modal) modal.style.display = 'none';
-}
-
-async function startExportPDF() {
-  const selected = getSelectedQuestions();
-  if (selected.length === 0) {
-    closeExportModal();
-    showMessage('提示', '請先勾選要匯出的題目！');
-    return;
-  }
-  closeExportModal();
-  const statusLeft = document.getElementById('status-left');
-  const prevStatus = statusLeft ? statusLeft.textContent : '';
-  if (statusLeft) statusLeft.textContent = '匯出 PDF 中...';
-  try {
-    await exportSelectedPDF(selected);
-    showMessage('完成', `PDF 已匯出並下載（${selected.length} 題）。`);
-  } catch (error) {
-    console.error('匯出 PDF 失敗:', error);
-    showMessage('錯誤', '匯出 PDF 失敗，請稍後再試或檢查圖片來源。');
-  } finally {
-    if (statusLeft) statusLeft.textContent = prevStatus || '就緒';
-  }
-}
-
-async function exportSelectedPDF(questions) {
-  const { jsPDF } = window.jspdf || {};
-  if (!jsPDF) {
-    showMessage('錯誤', '未載入 jsPDF，請確認網路連線或稍後再試。');
-    return;
-  }
-
-  const pdf = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'portrait' });
-  const pageWidth = pdf.internal.pageSize.getWidth();
-  const pageHeight = pdf.internal.pageSize.getHeight();
-  const margin = 36;
-  const maxWidth = pageWidth - margin * 2;
-
-  await ensurePdfFont(pdf);
-  setPdfFont(pdf);
-
-  // 第一部分：流水號 + 題目圖片（相同寬度往下排）
-  let y = margin;
-  pdf.setFontSize(14);
-  pdf.text('題目', margin, y);
-  y += 18;
-
-  for (let i = 0; i < questions.length; i++) {
-    const num = i + 1;
-    const q = questions[i];
-    const qid = getQID(q);
-    if (y + 40 > pageHeight - margin) {
-      pdf.addPage();
-      setPdfFont(pdf);
-      y = margin;
-    }
-    pdf.setFontSize(11);
-    pdf.text(`#${num} (Q_ID: ${qid})`, margin, y);
-    y += 12;
-    y = await appendImageWithPaging(pdf, getProblemImage(q), margin, y, maxWidth, { pageHeight, margin });
-  }
-
-  // 第二部分：答案表格（流水號 + 答案圖片）
-  pdf.addPage();
-  setPdfFont(pdf);
-  y = margin;
-  pdf.setFontSize(14);
-  pdf.text('答案', margin, y);
-  y += 18;
-
-  for (let i = 0; i < questions.length; i++) {
-    const num = i + 1;
-    const q = questions[i];
-    const answerSrc = getAnswerImage(q) || getSolutionImage(q);
-    if (y + 40 > pageHeight - margin) {
-      pdf.addPage();
-      setPdfFont(pdf);
-      y = margin;
-    }
-    pdf.setFontSize(11);
-    pdf.text(`#${num}`, margin, y);
-    y += 12;
-    if (answerSrc) {
-      y = await appendImageWithPaging(pdf, answerSrc, margin, y, maxWidth, { pageHeight, margin });
-    } else {
-      pdf.text('（無答案圖）', margin, y);
-      y += 16;
-    }
-  }
-
-  pdf.save(`shuatiji-selected-${formatDateForFilename(new Date())}.pdf`);
-}
-
-function addHeadingWithPaging(pdf, text, x, y, dims) {
-  const { pageHeight, margin } = dims;
-  if (y + 18 > pageHeight - margin) {
-    pdf.addPage();
-    y = margin;
-  }
-  pdf.setFontSize(11);
-  pdf.text(text, x, y);
-  return y + 12;
-}
-
-function addHeadingInColumn(pdf, text, x, y, width, addPageFn, side, dims) {
-  const { pageHeight, margin } = dims;
-  if (y + 18 > pageHeight - margin) {
-    addPageFn();
-    y = side === 'left' ? margin : margin;
-  }
-  pdf.setFontSize(11);
-  pdf.text(text, x, y);
-  return y + 12;
-}
-
-function addTextWithPaging(pdf, text, x, y, maxWidth, dims) {
-  const { pageHeight, margin } = dims;
-  if (!text) return y;
-  const lines = pdf.splitTextToSize(text, maxWidth);
-  const lineHeight = 14;
-  const blockHeight = lines.length * lineHeight;
-  if (y + blockHeight > pageHeight - margin) {
-    pdf.addPage();
-    y = margin;
-  }
-  pdf.setFontSize(10);
-  pdf.text(lines, x, y);
-  return y + blockHeight + 10;
-}
-
-function addTextInColumn(pdf, text, x, y, maxWidth, addPageFn, side, dims) {
-  const { pageHeight, margin } = dims;
-  if (!text) return y;
-  const lines = pdf.splitTextToSize(text, maxWidth);
-  const lineHeight = 14;
-  const blockHeight = lines.length * lineHeight;
-  if (y + blockHeight > pageHeight - margin) {
-    addPageFn();
-    y = margin;
-  }
-  pdf.setFontSize(10);
-  pdf.text(lines, x, y);
-  return y + blockHeight + 10;
-}
-
-async function appendImageWithPaging(pdf, src, x, y, maxWidth, dims) {
-  const { pageHeight, margin } = dims;
-  if (!src) return y;
-  const imgMeta = await loadImageMeta(src);
-  if (!imgMeta) return y;
-
-  const ratio = Math.min(
-    maxWidth / imgMeta.width,
-    (pageHeight - margin - y) / imgMeta.height
-  );
-
-  let renderWidth = imgMeta.width * ratio;
-  let renderHeight = imgMeta.height * ratio;
-
-  if (renderHeight <= 0 || renderWidth <= 0) return y;
-
-  if (y + renderHeight > pageHeight - margin) {
-    pdf.addPage();
-    setPdfFont(pdf);
-    y = margin;
-    const ratioNew = Math.min(
-      maxWidth / imgMeta.width,
-      (pageHeight - margin - y) / imgMeta.height
-    );
-    renderWidth = imgMeta.width * ratioNew;
-    renderHeight = imgMeta.height * ratioNew;
-  }
-
-  pdf.addImage(imgMeta.dataUrl, imgMeta.format, x, y, renderWidth, renderHeight, undefined, 'FAST');
-  return y + renderHeight + 10;
-}
-
-async function appendImageInColumn(pdf, src, x, y, maxWidth, addPageFn, side, dims) {
-  const { pageHeight, margin } = dims;
-  if (!src) return y;
-  const imgMeta = await loadImageMeta(src);
-  if (!imgMeta) return y;
-
-  const ratio = Math.min(
-    maxWidth / imgMeta.width,
-    (pageHeight - margin - y) / imgMeta.height
-  );
-
-  let renderWidth = imgMeta.width * ratio;
-  let renderHeight = imgMeta.height * ratio;
-
-  if (renderHeight <= 0 || renderWidth <= 0) return y;
-
-  if (y + renderHeight > pageHeight - margin) {
-    addPageFn();
-    setPdfFont(pdf);
-    y = margin;
-    const ratioNew = Math.min(
-      maxWidth / imgMeta.width,
-      (pageHeight - margin - y) / imgMeta.height
-    );
-    renderWidth = imgMeta.width * ratioNew;
-    renderHeight = imgMeta.height * ratioNew;
-  }
-
-  pdf.addImage(imgMeta.dataUrl, imgMeta.format, x, y, renderWidth, renderHeight, undefined, 'FAST');
-  return y + renderHeight + 10;
-}
-
-async function loadImageMeta(url) {
-  try {
-    const dataUrl = await loadImageAsDataURL(url);
-    if (!dataUrl) return null;
-    const img = await loadImageElement(dataUrl);
-    const format = dataUrl.startsWith('data:image/jpeg') ? 'JPEG' : 'PNG';
-    return {
-      dataUrl,
-      width: img.naturalWidth || img.width,
-      height: img.naturalHeight || img.height,
-      format
-    };
-  } catch (e) {
-    console.warn('無法載入圖片:', url, e);
-    return null;
-  }
-}
-
-function loadImageAsDataURL(url) {
-  return new Promise((resolve) => {
-    fetch(url)
-      .then(res => res.blob())
-      .then(blob => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = () => resolve(null);
-        reader.readAsDataURL(blob);
-      })
-      .catch(() => resolve(null));
-  });
-}
-
-function loadImageElement(dataUrl) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = reject;
-    img.src = dataUrl;
-  });
-}
-
-async function ensurePdfFont(pdf) {
-  if (pdfFontReady) {
-    setPdfFont(pdf);
-    return;
-  }
-  try {
-    if (!pdfFontData) {
-      const fontUrl = 'https://cdn.jsdelivr.net/gh/lxgw/LxgwWenKai-Lite@v1.235/lxgwwenkai-lite-regular.ttf';
-      const res = await fetch(fontUrl);
-      const buffer = await res.arrayBuffer();
-      const bytes = new Uint8Array(buffer);
-      let binary = '';
-      const chunk = 0x8000;
-      for (let i = 0; i < bytes.length; i += chunk) {
-        binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
-      }
-      pdfFontData = btoa(binary);
-    }
-    pdf.addFileToVFS(pdfFontFileName, pdfFontData);
-    pdf.addFont(pdfFontFileName, pdfFontName, 'normal');
-    pdfFontReady = true;
-    setPdfFont(pdf);
-  } catch (e) {
-    console.warn('載入中文字型失敗，將使用預設字型：', e);
-    pdfFontReady = false;
-  }
-}
-
-function setPdfFont(pdf) {
-  try {
-    pdf.setFont(pdfFontName, 'normal');
-  } catch (e) {
-    pdf.setFont('Helvetica', '');
-  }
-}
 
 function getProblemImage(q) {
   return q['Problem Image'] || q['題目圖片'] || q['問題圖片'] || q['ProblemImage'] || '';
@@ -1311,6 +1158,7 @@ function logMobileBrowseRating(value) {
   } else {
     practiceLog.push(log);
   }
+  rebuildCachesFromLogs();
   saveToLocalStorage();
   updateMobileBrowseStars(value);
 }
@@ -1558,6 +1406,7 @@ function recordResult(result) {
   };
   
   practiceLog.push(log);
+  updateCachesWithLog(log);
   
   // 更新 Hobbit Log（使用這次花費的時間）
   updateHobbitLog(today, thisQuestionTime);
@@ -1605,6 +1454,7 @@ function saveBrowseLog() {
   } else {
     practiceLog.push(log);
   }
+  rebuildCachesFromLogs();
   
   updateHobbitLog(today, elapsed);
   saveToLocalStorage();
@@ -1660,19 +1510,21 @@ function updateDifficultyStars(value) {
 function saveCurrentNote() {
   currentNote = document.getElementById('practice-notes').value;
   
-  // 更新 practiceLog 中這題的筆記
+  // ?? practiceLog ??????
   const q = practiceQuestions[currentIndex];
   const qid = getQID(q);
   
   const logs = practiceLog.filter(log => log.Q_ID === qid);
   if (logs.length > 0) {
     logs[logs.length - 1].Note = currentNote;
+    ensureStatusEntry(qid).lastNote = currentNote;
     saveToLocalStorage();
-    showMessage('提示', '筆記已儲存！');
+    showMessage('??', '?????');
   } else {
-    showMessage('提示', '請先作答（正確/錯誤/跳過）後，筆記才會儲存。');
+    showMessage('??', '???????/??/?????????');
   }
 }
+
 
 function saveForLater() {
   // 累積當前題目的時間
@@ -2161,42 +2013,71 @@ function getRecruitmentType(schoolName) {
   return schoolName.includes('聯招') ? '聯招' : '獨招';
 }
 
+function getLastResultFromLogs(qid) {
+  const logs = practiceLog.filter(log => log.Q_ID === qid);
+  if (logs.length === 0) return null;
+  const latest = logs.sort((a, b) => new Date(b.Date) - new Date(a.Date))[0];
+  return latest.Result || null;
+}
+
+
 function isPracticed(qid) {
+  const entry = statusMap[qid];
+  if (entry) return entry.attemptCount > 0;
   return practiceLog.some(log => log.Q_ID === qid);
 }
 
+
 function getPracticeCount(qid) {
+  const entry = statusMap[qid];
+  if (entry) return entry.attemptCount || 0;
   return practiceLog.filter(log => log.Q_ID === qid).length;
 }
 
+
 function getLastDate(qid) {
+  const entry = statusMap[qid];
+  const dateStr = entry && entry.lastResultDate;
+  if (dateStr) {
+    const date = new Date(dateStr);
+    if (!Number.isNaN(date.getTime())) {
+      return `${date.getMonth() + 1}/${date.getDate()}`;
+    }
+  }
   const logs = practiceLog.filter(log => log.Q_ID === qid);
   if (logs.length === 0) return '-';
-  
+
   const latest = logs.sort((a, b) => new Date(b.Date) - new Date(a.Date))[0];
   const date = new Date(latest.Date);
   return `${date.getMonth() + 1}/${date.getDate()}`;
 }
 
+
 function getSkipCount(qid) {
+  const entry = statusMap[qid];
+  if (entry) return entry.skipCount || 0;
   return practiceLog.filter(log => log.Q_ID === qid && log.Result === 'Skipped').length;
 }
 
+
 function getUserDifficulty(qid) {
-  // 從使用者資料讀取難度（最近一次的實際難度）
+  const entry = statusMap[qid];
+  if (entry && entry.lastActualDifficulty > 0) return entry.lastActualDifficulty;
   const logs = practiceLog.filter(log => log.Q_ID === qid && log.ActualDifficulty > 0);
   if (logs.length === 0) return 0;
-  
-  // 取最近一次的難度
   const latest = logs.sort((a, b) => new Date(b.Date) - new Date(a.Date))[0];
   return latest.ActualDifficulty;
 }
 
+
 function getPreviousNote(qid) {
+  const entry = statusMap[qid];
+  if (entry && entry.lastNote) return entry.lastNote;
   const logs = practiceLog.filter(log => log.Q_ID === qid && log.Note);
   if (logs.length === 0) return '';
   return logs[logs.length - 1].Note;
 }
+
 
 function renderStars(difficulty) {
   const rating = parseInt(difficulty) || 0;
@@ -2366,6 +2247,8 @@ function importLogs() {
           addedCount++;
         }
       });
+      
+      rebuildCachesFromLogs();
       
       // 儲存
       saveToLocalStorage();

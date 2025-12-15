@@ -98,8 +98,9 @@ body {
 /* ==================== 內容區 - 固定高度 ==================== */
 .win98-content {
   padding: 16px;
-  height: calc(100vh - 200px);
-  overflow: hidden;
+  min-height: calc(100vh - 200px);
+  height: auto;
+  overflow-y: auto;
 }
 
 .page {
