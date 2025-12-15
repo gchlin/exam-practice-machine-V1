@@ -1818,7 +1818,8 @@ function renderLogDate(date) {
 
   logs.forEach(log => {
     const q = allQuestions.find(q => getQID(q) === log.Q_ID) || {};
-    const stars = log.ActualDifficulty ? '?'.repeat(log.ActualDifficulty) : '';
+    const starChar = '&#9733;'; // use entity to avoid encoding issues
+    const stars = log.ActualDifficulty ? starChar.repeat(log.ActualDifficulty) : '';
     const timeMin = Math.floor((log.TimeSeconds || 0) / 60);
     const imgSrc = getProblemImage(q);
     const div = document.createElement('div');
@@ -1830,14 +1831,14 @@ function renderLogDate(date) {
       </div>
       <div class="log-item-body">
         <div class="log-thumb">
-          ${imgSrc ? `<img src="${imgSrc}" alt="??" />` : '<span class="small">-</span>'}
+          ${imgSrc ? `<img src="${imgSrc}" alt="${'\u984c\u76ee'}" />` : '<span class="small">-</span>'}
         </div>
         <span>${log.Result || ''}</span>
         <span>${stars}</span>
-        <span>${timeMin} ??</span>
+        <span>${timeMin} ${'\u5206\u9418'}</span>
         <div class="log-item-actions">
-          <button class="win98-button small log-view-btn" data-qid="${log.Q_ID || ''}">??</button>
-          <button class="win98-button small log-redo-btn" data-qid="${log.Q_ID || ''}">??</button>
+          <button class="win98-button small log-view-btn" data-qid="${log.Q_ID || ''}">${'\u6aa2\u8996'}</button>
+          <button class="win98-button small log-redo-btn" data-qid="${log.Q_ID || ''}">${'\u518d\u7df4'}</button>
         </div>
       </div>
       <div class="log-item-note small">${log.Note || log.Notes || ''}</div>
