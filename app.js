@@ -501,7 +501,7 @@ function initListPage() {
 
 function initFilters() {
   const years = [...new Set(allQuestions.map(q => q.Year).filter(Boolean))].sort();
-  const schools = [...new Set(allQuestions.map(q => q.School).filter(Boolean))].sort();
+  const schools = sortSchools([...new Set(allQuestions.map(q => q.School).filter(Boolean))]);
   const chapters = [...new Set(allQuestions.map(q => q.Chapter).filter(Boolean))].sort();
   const types = [...new Set(allQuestions.map(q => q['Question Type'] || '').filter(Boolean))].sort();
   
@@ -511,6 +511,16 @@ function initFilters() {
   populateSelect('filter-chapter', chapters);
   populateSelect('random-chapter', chapters);
   populateTypeSelect('filter-type', types);
+}
+
+function sortSchools(list) {
+  // Prefer stroke-count sorting; fall back to locale comparison if unavailable.
+  try {
+    const strokeCollator = new Intl.Collator('zh-u-co-stroke');
+    return list.sort((a, b) => strokeCollator.compare(a, b));
+  } catch (e) {
+    return list.sort((a, b) => a.localeCompare(b, 'zh-Hant'));
+  }
 }
 
 function populateSelect(id, options) {
@@ -1808,8 +1818,9 @@ function renderLogDate(date) {
 
   logs.forEach(log => {
     const q = allQuestions.find(q => getQID(q) === log.Q_ID) || {};
-    const stars = log.ActualDifficulty ? '★'.repeat(log.ActualDifficulty) : '';
+    const stars = log.ActualDifficulty ? '?'.repeat(log.ActualDifficulty) : '';
     const timeMin = Math.floor((log.TimeSeconds || 0) / 60);
+    const imgSrc = getProblemImage(q);
     const div = document.createElement('div');
     div.className = 'log-item';
     div.innerHTML = `
@@ -1818,12 +1829,15 @@ function renderLogDate(date) {
         <span class="small">${q.Year || log.Year || '-'} / ${q.School || log.School || '-'}</span>
       </div>
       <div class="log-item-body">
+        <div class="log-thumb">
+          ${imgSrc ? `<img src="${imgSrc}" alt="??" />` : '<span class="small">-</span>'}
+        </div>
         <span>${log.Result || ''}</span>
         <span>${stars}</span>
-        <span>${timeMin} 分鐘</span>
+        <span>${timeMin} ??</span>
         <div class="log-item-actions">
-          <button class="win98-button small log-view-btn" data-qid="${log.Q_ID || ''}">預覽</button>
-          <button class="win98-button small log-redo-btn" data-qid="${log.Q_ID || ''}">重做</button>
+          <button class="win98-button small log-view-btn" data-qid="${log.Q_ID || ''}">??</button>
+          <button class="win98-button small log-redo-btn" data-qid="${log.Q_ID || ''}">??</button>
         </div>
       </div>
       <div class="log-item-note small">${log.Note || log.Notes || ''}</div>
@@ -1832,10 +1846,18 @@ function renderLogDate(date) {
     if (viewBtn) {
       viewBtn.addEventListener('click', () => {
         const question = allQuestions.find(item => getQID(item) === log.Q_ID);
-        if (question) {
-          const src = question['Problem Image'] || '';
-          enlargeImage(src, `${question.Year || '-'} / ${question.School || '-'}`);
+        const src = question ? getProblemImage(question) : imgSrc;
+        if (src) {
+          const meta = question ? `${question.Year || '-'} / ${question.School || '-'}` : '';
+          enlargeImage(src, meta);
         }
+      });
+    }
+    const thumbImg = div.querySelector('.log-thumb img');
+    if (thumbImg) {
+      thumbImg.addEventListener('click', () => {
+        const meta = `${q.Year || log.Year || '-'} / ${q.School || log.School || '-'}`;
+        enlargeImage(thumbImg.src, meta);
       });
     }
     const redoBtn = div.querySelector('.log-redo-btn');

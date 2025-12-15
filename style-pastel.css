@@ -1459,6 +1459,26 @@ body.mobile-mode .practice-controls {
   flex-wrap: wrap;
 }
 
+.log-thumb {
+  width: 100px;
+  height: 60px;
+  border: 1px solid #d5d1e5;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+
+.log-thumb img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  cursor: pointer;
+}
+
 .log-item-note {
   margin-top: 4px;
   color: #6b637a;
