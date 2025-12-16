@@ -5,6 +5,9 @@ let pdfFontReady = false;
 
 // Minimum scale to avoid over-shrinking when space is tight (used only for legacy check; current logic prefers page break)
 const MIN_RENDER_RATIO = 0.75;
+const FRAME_PADDING = 6;
+const FRAME_LABEL_HEIGHT = 12;
+const FRAME_GAP = 10;
 
 function openExportModal() {
   const selected = getSelectedQuestions();
@@ -26,6 +29,11 @@ function closeExportModal() {
 function getExportOrderMode() {
   const radio = document.querySelector('input[name="export-order"]:checked');
   return radio ? radio.value : 'original';
+}
+
+function shouldUseCalcArea() {
+  const cb = document.getElementById('export-calc-area');
+  return cb ? cb.checked : false;
 }
 
 async function startExportPDF() {
@@ -52,13 +60,26 @@ async function startExportPDF() {
 
 function estimateQuestionBlockHeight(meta, layout) {
   const { maxWidth, pageHeight, margin } = layout;
-  const padding = 6;
-  const labelHeight = 12;
-  const gap = 10;
+  const padding = FRAME_PADDING;
+  const labelHeight = FRAME_LABEL_HEIGHT;
+  const gap = FRAME_GAP;
 
   if (!meta) {
     return pageHeight - margin * 2;
   }
+
+  const ratio = Math.min(1, maxWidth / meta.width);
+  const renderHeight = meta.height * ratio;
+  const frameHeight = renderHeight + padding * 2 + labelHeight;
+  return frameHeight + gap;
+}
+
+function computeFrameHeight(meta, maxWidth) {
+  const padding = FRAME_PADDING;
+  const labelHeight = FRAME_LABEL_HEIGHT;
+  const gap = FRAME_GAP;
+
+  if (!meta) return Number.MAX_SAFE_INTEGER;
 
   const ratio = Math.min(1, maxWidth / meta.width);
   const renderHeight = meta.height * ratio;
@@ -132,22 +153,27 @@ async function exportSelectedPDF(questions) {
     ...item,
     code: `A${String(idx + 1).padStart(3, '0')}`
   }));
+  const useCalcArea = shouldUseCalcArea();
+
   // 第一部分：只輸出題目圖片（不輸出文字）
   setPdfFont(pdf);
-  let y = margin;
-
-  for (let i = 0; i < numbered.length; i++) {
-    const item = numbered[i];
-    y = await renderQuestionFrame(
-      pdf,
-      getProblemImage(item.question),
-      item.code,
-      y,
-      margin,
-      maxWidth,
-      { pageHeight, margin },
-      { meta: item.meta }
-    );
+  if (useCalcArea) {
+    await renderQuestionsWithCalcArea(pdf, numbered, { pageHeight, margin, maxWidth });
+  } else {
+    let y = margin;
+    for (let i = 0; i < numbered.length; i++) {
+      const item = numbered[i];
+      y = await renderQuestionFrame(
+        pdf,
+        getProblemImage(item.question),
+        item.code,
+        y,
+        margin,
+        maxWidth,
+        { pageHeight, margin },
+        { meta: item.meta }
+      );
+    }
   }
 
   // 第二部分：答案以 5x5 格呈現（不放大，只縮小以塞入格子）
@@ -204,6 +230,90 @@ async function exportSelectedPDF(questions) {
   if (!saved) {
     throw new Error('PDF download was blocked or failed.');
   }
+}
+
+async function renderQuestionsWithCalcArea(pdf, items, layout) {
+  const { pageHeight, margin, maxWidth } = layout;
+  const usableHeight = pageHeight - margin * 2;
+  const slotCounts = [5, 4, 3, 2, 1];
+  const slotHeightMap = {};
+  slotCounts.forEach(count => {
+    slotHeightMap[count] = usableHeight / count;
+  });
+
+  const pickSlotCount = (frameHeight) => {
+    for (const count of slotCounts) {
+      if (frameHeight <= slotHeightMap[count]) return count;
+    }
+    return 1;
+  };
+
+  let currentSlotCount = null;
+  let slotIndex = 0; // 0-based within current page
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    const meta = item.meta || (item.question ? await loadImageMeta(getProblemImage(item.question)) : null);
+    const frameHeight = computeFrameHeight(meta, maxWidth);
+    const bestSlotCount = pickSlotCount(frameHeight);
+
+    const hasCurrent = currentSlotCount !== null;
+    const currentSlotHeight = hasCurrent ? slotHeightMap[currentSlotCount] : 0;
+    const fitsCurrent = hasCurrent && slotIndex < currentSlotCount && frameHeight <= currentSlotHeight;
+
+    if (!fitsCurrent) {
+      if (hasCurrent) {
+        pdf.addPage();
+        setPdfFont(pdf);
+      }
+      currentSlotCount = bestSlotCount;
+      slotIndex = 0;
+    }
+
+    const slotHeight = slotHeightMap[currentSlotCount];
+    const yTop = margin + slotIndex * slotHeight;
+
+    await renderQuestionInSlot(pdf, item, yTop, slotHeight, margin, maxWidth, meta);
+
+    slotIndex += 1;
+    if (slotIndex >= currentSlotCount && i < items.length - 1) {
+      pdf.addPage();
+      setPdfFont(pdf);
+      currentSlotCount = null;
+      slotIndex = 0;
+    }
+  }
+}
+
+async function renderQuestionInSlot(pdf, item, yTop, slotHeight, margin, maxWidth, metaFromPrepare) {
+  const src = getProblemImage(item.question);
+  const imgMeta = metaFromPrepare || (src ? await loadImageMeta(src) : null);
+  if (!imgMeta) return;
+
+  const ratioWidth = Math.min(1, maxWidth / imgMeta.width);
+  let renderWidth = imgMeta.width * ratioWidth;
+  let renderHeight = imgMeta.height * ratioWidth;
+
+  let frameHeight = renderHeight + FRAME_PADDING * 2 + FRAME_LABEL_HEIGHT;
+  const totalHeightWithGap = frameHeight + FRAME_GAP;
+  if (totalHeightWithGap > slotHeight) {
+    const safeRatio = Math.min(1, (slotHeight - FRAME_GAP) / frameHeight);
+    renderWidth *= safeRatio;
+    renderHeight *= safeRatio;
+    frameHeight = renderHeight + FRAME_PADDING * 2 + FRAME_LABEL_HEIGHT;
+  }
+
+  const x = margin;
+  const verticalOffset = Math.max(0, (slotHeight - (frameHeight + FRAME_GAP)) / 2);
+  const frameY = yTop + verticalOffset;
+
+  pdf.rect(x, frameY, renderWidth + FRAME_PADDING * 2, renderHeight + FRAME_PADDING * 2 + FRAME_LABEL_HEIGHT);
+  pdf.setFontSize(10);
+  pdf.text(item.code, x + 4, frameY + FRAME_LABEL_HEIGHT - 2);
+
+  const imgX = x + FRAME_PADDING;
+  const imgY = frameY + FRAME_LABEL_HEIGHT + FRAME_PADDING;
+  pdf.addImage(imgMeta.dataUrl, imgMeta.format, imgX, imgY, renderWidth, renderHeight, undefined, 'FAST');
 }
 
 async function downloadPdf(pdf, filename) {
@@ -355,8 +465,8 @@ async function renderQuestionFrame(pdf, src, code, y, margin, maxWidth, dims, op
   const imgMeta = options.meta || await loadImageMeta(src);
   if (!imgMeta) return y;
 
-  const padding = 6;
-  const labelHeight = 12;
+  const padding = FRAME_PADDING;
+  const labelHeight = FRAME_LABEL_HEIGHT;
 
   const computeRatio = (currentY) => {
     return Math.min(1, maxWidth / imgMeta.width);
@@ -391,7 +501,7 @@ async function renderQuestionFrame(pdf, src, code, y, margin, maxWidth, dims, op
   const imgY = y + labelHeight + padding;
   pdf.addImage(imgMeta.dataUrl, imgMeta.format, imgX, imgY, renderWidth, renderHeight, undefined, 'FAST');
 
-  return y + frameHeight + 10;
+  return y + frameHeight + FRAME_GAP;
 }
 
 async function loadImageMeta(url) {
