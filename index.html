@@ -30,6 +30,51 @@
       background: rgba(255, 255, 255, 0.6);
       font-weight: bold;
     }
+
+    /* 匯出進度遮罩 */
+    #export-progress-overlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+    #export-progress-overlay .overlay-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.35);
+    }
+    #export-progress-overlay .overlay-content {
+      position: relative;
+      background: #fff;
+      border: 2px solid #000;
+      padding: 16px 20px;
+      border-radius: 6px;
+      min-width: 260px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+    #export-progress-overlay .spinner {
+      width: 32px;
+      height: 32px;
+      border: 4px solid #d0d0d0;
+      border-top-color: #000;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    #export-progress-overlay .overlay-text {
+      font-size: 13px;
+      text-align: center;
+      color: #000;
+    }
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
   </style>
 </head>
 <body>
@@ -578,10 +623,10 @@
       <div class="modal-body">
         <p class="small" id="export-selection-hint">已選 0 題</p>
         <label class="small" style="display:block; margin:6px 0;">
-          <input type="radio" name="export-layout" value="single" checked> 直式單欄（題目上方、答案下方）
+          <input type="radio" name="export-layout" value="single" checked> 直式單欄（A4，題目先、答案後）
         </label>
         <label class="small" style="display:block; margin:6px 0;">
-          <input type="radio" name="export-layout" value="double"> 橫式雙欄（題目左、答案右，可自動分頁）
+          <input type="radio" name="export-layout" value="double"> 橫式雙欄（B4，題目雙欄，答案最後）
         </label>
         <p class="small" style="margin-top:8px;">排列方式：</p>
         <label class="small" style="display:block; margin:6px 0;">
@@ -599,6 +644,15 @@
         <button class="win98-button" onclick="closeExportModal()">取消</button>
         <button class="win98-button" id="btn-export-confirm">開始匯出</button>
       </div>
+    </div>
+  </div>
+
+  <!-- 匯出進度遮罩 -->
+  <div id="export-progress-overlay" style="display:none;">
+    <div class="overlay-backdrop"></div>
+    <div class="overlay-content">
+      <div class="spinner"></div>
+      <div class="overlay-text" id="export-progress-text">正在匯出，請稍候…</div>
     </div>
   </div>
 

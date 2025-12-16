@@ -8,6 +8,7 @@ const MIN_RENDER_RATIO = 0.75;
 const FRAME_PADDING = 6;
 const FRAME_LABEL_HEIGHT = 12;
 const FRAME_GAP = 10;
+const COLUMN_GUTTER = 16;
 
 function openExportModal() {
   const selected = getSelectedQuestions();
@@ -31,9 +32,33 @@ function getExportOrderMode() {
   return radio ? radio.value : 'original';
 }
 
+function getExportLayout() {
+  const radio = document.querySelector('input[name="export-layout"]:checked');
+  return radio ? radio.value : 'single';
+}
+
 function shouldUseCalcArea() {
   const cb = document.getElementById('export-calc-area');
   return cb ? cb.checked : false;
+}
+
+function showExportOverlay(text = '正在匯出，請稍候…') {
+  const overlay = document.getElementById('export-progress-overlay');
+  const label = document.getElementById('export-progress-text');
+  if (label) label.textContent = text;
+  if (overlay) overlay.style.display = 'flex';
+}
+
+function hideExportOverlay() {
+  const overlay = document.getElementById('export-progress-overlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+function updateExportStatus(text) {
+  const label = document.getElementById('export-progress-text');
+  if (label) label.textContent = text;
+  const statusLeft = document.getElementById('status-left');
+  if (statusLeft) statusLeft.textContent = text;
 }
 
 async function startExportPDF() {
@@ -46,14 +71,17 @@ async function startExportPDF() {
   closeExportModal();
   const statusLeft = document.getElementById('status-left');
   const prevStatus = statusLeft ? statusLeft.textContent : '';
-  if (statusLeft) statusLeft.textContent = '匯出 PDF 中...';
+  updateExportStatus('匯出 PDF 中...');
+  showExportOverlay('正在匯出 PDF，請稍候…');
   try {
     await exportSelectedPDF(selected);
+    updateExportStatus('匯出完成');
     showMessage('完成', `PDF 已匯出並下載（${selected.length} 題）。`);
   } catch (error) {
     console.error('匯出 PDF 失敗:', error);
     showMessage('錯誤', '匯出 PDF 失敗，請稍後再試或檢查圖片來源。');
   } finally {
+    hideExportOverlay();
     if (statusLeft) statusLeft.textContent = prevStatus || '就緒';
   }
 }
@@ -137,15 +165,22 @@ async function exportSelectedPDF(questions) {
     return;
   }
 
-  const pdf = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'portrait' });
+  const layoutMode = getExportLayout();
+  const isDouble = layoutMode === 'double';
+  const pdf = new jsPDF({
+    unit: 'pt',
+    format: isDouble ? 'b4' : 'a4',
+    orientation: isDouble ? 'landscape' : 'portrait'
+  });
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
   const margin = 36;
   const maxWidth = pageWidth - margin * 2;
+  const contentMaxWidth = isDouble ? (pageWidth - margin * 2 - COLUMN_GUTTER) / 2 : maxWidth;
 
   const orderMode = getExportOrderMode();
   const ordered = await prepareQuestionsForExport(questions, orderMode, {
-    maxWidth,
+    maxWidth: contentMaxWidth,
     pageHeight,
     margin
   });
@@ -153,12 +188,28 @@ async function exportSelectedPDF(questions) {
     ...item,
     code: `A${String(idx + 1).padStart(3, '0')}`
   }));
-  const useCalcArea = shouldUseCalcArea();
+  const useCalcArea = !isDouble && shouldUseCalcArea();
+  const totalCount = numbered.length;
+  let renderedCount = 0;
+  const tick = () => {
+    renderedCount += 1;
+    if (renderedCount === 1 || renderedCount === totalCount || renderedCount % 5 === 0) {
+      updateExportStatus(`正在渲染題目 ${renderedCount}/${totalCount}`);
+    }
+  };
 
   // 第一部分：只輸出題目圖片（不輸出文字）
   setPdfFont(pdf);
-  if (useCalcArea) {
-    await renderQuestionsWithCalcArea(pdf, numbered, { pageHeight, margin, maxWidth });
+  if (isDouble) {
+    await renderQuestionsTwoColumns(pdf, numbered, {
+      pageWidth,
+      pageHeight,
+      margin,
+      colGutter: COLUMN_GUTTER,
+      onRendered: tick
+    });
+  } else if (useCalcArea) {
+    await renderQuestionsWithCalcArea(pdf, numbered, { pageHeight, margin, maxWidth, onRendered: tick });
   } else {
     let y = margin;
     for (let i = 0; i < numbered.length; i++) {
@@ -173,10 +224,12 @@ async function exportSelectedPDF(questions) {
         { pageHeight, margin },
         { meta: item.meta }
       );
+      tick();
     }
   }
 
   // 第二部分：答案以 5x5 格呈現（不放大，只縮小以塞入格子）
+  updateExportStatus('正在整理答案縮圖...');
   pdf.addPage();
   setPdfFont(pdf);
   const usableWidth = pageWidth - margin * 2;
@@ -233,7 +286,7 @@ async function exportSelectedPDF(questions) {
 }
 
 async function renderQuestionsWithCalcArea(pdf, items, layout) {
-  const { pageHeight, margin, maxWidth } = layout;
+  const { pageHeight, margin, maxWidth, onRendered } = layout;
   const usableHeight = pageHeight - margin * 2;
   const slotCounts = [5, 4, 3, 2, 1];
   const slotHeightMap = {};
@@ -274,6 +327,8 @@ async function renderQuestionsWithCalcArea(pdf, items, layout) {
     const yTop = margin + slotIndex * slotHeight;
 
     await renderQuestionInSlot(pdf, item, yTop, slotHeight, margin, maxWidth, meta);
+    if (onRendered) onRendered();
+    if (onRendered) onRendered();
 
     slotIndex += 1;
     if (slotIndex >= currentSlotCount && i < items.length - 1) {
@@ -282,6 +337,57 @@ async function renderQuestionsWithCalcArea(pdf, items, layout) {
       currentSlotCount = null;
       slotIndex = 0;
     }
+  }
+}
+
+async function renderQuestionsTwoColumns(pdf, items, layout) {
+  const { pageWidth, pageHeight, margin, colGutter, onRendered } = layout;
+  const colWidth = (pageWidth - margin * 2 - colGutter) / 2;
+
+  let col = 0; // 0 left, 1 right
+  let y = margin;
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    const src = getProblemImage(item.question);
+    const imgMeta = item.meta || (src ? await loadImageMeta(src) : null);
+    if (!imgMeta) {
+      if (onRendered) onRendered();
+      continue;
+    }
+
+    const ratio = Math.min(1, colWidth / imgMeta.width);
+    const renderWidth = imgMeta.width * ratio;
+    const renderHeight = imgMeta.height * ratio;
+    const frameWidth = renderWidth + FRAME_PADDING * 2;
+    const frameHeight = renderHeight + FRAME_PADDING * 2 + FRAME_LABEL_HEIGHT;
+
+    // 如果當前列放不下，換下一列；若兩列都滿則換頁
+    const availableBottom = pageHeight - margin;
+    if (y + frameHeight > availableBottom) {
+      if (col === 0) {
+        col = 1;
+        y = margin;
+      } else {
+        pdf.addPage();
+        setPdfFont(pdf);
+        col = 0;
+        y = margin;
+      }
+    }
+
+    const x = margin + col * (colWidth + colGutter);
+    pdf.rect(x, y, frameWidth, frameHeight);
+    pdf.setFontSize(10);
+    pdf.text(item.code, x + 4, y + FRAME_LABEL_HEIGHT - 2);
+
+    const imgX = x + FRAME_PADDING;
+    const imgY = y + FRAME_LABEL_HEIGHT + FRAME_PADDING;
+    pdf.addImage(imgMeta.dataUrl, imgMeta.format, imgX, imgY, renderWidth, renderHeight, undefined, 'FAST');
+
+    if (onRendered) onRendered();
+
+    y += frameHeight + FRAME_GAP;
   }
 }
 
