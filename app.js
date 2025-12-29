@@ -42,6 +42,10 @@ let dailyStats = {};
 
 // 未完成會話
 let unfinishedSession = null;
+let questionBankMeta = { version: 'unknown', hash: 'unknown' };
+
+const APP_VERSION = '2.0';
+const DATA_VERSION = '1.0';
 
 // ==================== Supabase Auth 設定 ====================
 const SUPABASE_URL = window.SUPABASE_URL || 'https://hnnpdkzanxxsoyvarcrk.supabase.co';
@@ -49,6 +53,7 @@ const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'sb_publishable_qM_ImDglw0
 let supabaseClient = null;
 let currentUser = null;
 let authInitFailed = false;
+let isSyncing = false;
 
 // ==================== 初始化 ====================
 
@@ -57,6 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // 初始化登入/註冊（Supabase Auth）
   initAuth();
+  getDeviceId(); // 確保每個裝置有唯一 ID
   
   // 載入主題
   loadTheme();
@@ -130,7 +136,7 @@ function bindEvents() {
   if (showSchoolCheckbox) showSchoolCheckbox.addEventListener('change', renderQuestionList);
   
   // 雲端同步
-  document.getElementById('btn-sync-cloud').addEventListener('click', syncToCloud);
+  document.getElementById('btn-sync-cloud').addEventListener('click', () => syncToSupabase(true));
   
   // 重新載入題庫
   document.getElementById('btn-reload-questions').addEventListener('click', reloadQuestions);
@@ -285,7 +291,8 @@ function initAuth() {
       return;
     }
     setAuthStatus(`已登入：${currentUser.email || ''}`, false);
-    // 後續的雲端同步可在這裡靜默觸發
+    // 靜默觸發雲端同步
+    syncToSupabase(false);
   });
 }
 
@@ -447,6 +454,10 @@ function saveToLocalStorage() {
     localStorage.setItem('unfinishedSession', JSON.stringify(unfinishedSession));
     localStorage.setItem('statusMap', JSON.stringify(statusMap));
     localStorage.setItem('dailyStats', JSON.stringify(dailyStats));
+    localStorage.setItem('predictedDifficulties', JSON.stringify(predictedDifficulties));
+    localStorage.setItem('questionTimes', JSON.stringify(questionTimes));
+    localStorage.setItem('mobileBrowseTimes', JSON.stringify(mobileBrowseTimes));
+    localStorage.setItem('questionBankMeta', JSON.stringify(questionBankMeta));
     console.log('localStorage saved');
   } catch (e) {
     console.error('save failed:', e);
@@ -464,6 +475,10 @@ function loadFromLocalStorage() {
     const u = localStorage.getItem('unfinishedSession');
     const s = localStorage.getItem('statusMap');
     const d = localStorage.getItem('dailyStats');
+    const pd = localStorage.getItem('predictedDifficulties');
+    const qt = localStorage.getItem('questionTimes');
+    const mbt = localStorage.getItem('mobileBrowseTimes');
+    const qb = localStorage.getItem('questionBankMeta');
 
     if (q) allQuestions = JSON.parse(q);
     if (p) practiceLog = JSON.parse(p);
@@ -472,6 +487,10 @@ function loadFromLocalStorage() {
     if (u) unfinishedSession = JSON.parse(u);
     if (s) statusMap = JSON.parse(s);
     if (d) dailyStats = JSON.parse(d);
+    if (pd) predictedDifficulties = JSON.parse(pd);
+    if (qt) questionTimes = JSON.parse(qt);
+    if (mbt) mobileBrowseTimes = JSON.parse(mbt);
+    if (qb) questionBankMeta = JSON.parse(qb);
 
     if (!Array.isArray(allQuestions)) allQuestions = [];
     if (!Array.isArray(practiceLog)) practiceLog = [];
@@ -502,6 +521,233 @@ function rebuildCachesFromLogs() {
   practiceLog.forEach(log => {
     updateCachesWithLog(log);
   });
+}
+
+// ==================== 同步輔助 ====================
+
+function getDeviceId() {
+  let id = localStorage.getItem('deviceId');
+  if (!id) {
+    id = (crypto.randomUUID && crypto.randomUUID()) || `dev-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    localStorage.setItem('deviceId', id);
+  }
+  return id;
+}
+
+function getQuestionBankMeta() {
+  if (!questionBankMeta || !questionBankMeta.hash) {
+    questionBankMeta = {
+      version: questionBankMeta?.version || 'unknown',
+      hash: questionBankMeta?.hash || `count-${allQuestions.length || 0}`,
+      count: allQuestions.length || 0
+    };
+  }
+  return questionBankMeta;
+}
+
+function setQuestionBankMeta(meta) {
+  questionBankMeta = meta || { version: 'unknown', hash: 'unknown', count: allQuestions.length || 0 };
+  localStorage.setItem('questionBankMeta', JSON.stringify(questionBankMeta));
+}
+
+async function computeQuestionBankHash(text) {
+  if (!text) return `count-${allQuestions.length || 0}`;
+  try {
+    const enc = new TextEncoder();
+    const data = enc.encode(text);
+    const digest = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(digest));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch (e) {
+    console.warn('hash failed, fallback to length', e);
+    return `len-${text.length}`;
+  }
+}
+
+function stampLogForSync(log) {
+  if (!log) return log;
+  const now = Date.now();
+  log.client_updated_at = log.client_updated_at || now;
+  log.updated_at = log.client_updated_at;
+  log.device_id = log.device_id || getDeviceId();
+  const meta = getQuestionBankMeta();
+  log.question_bank_hash = log.question_bank_hash || meta.hash;
+  log.question_bank_version = log.question_bank_version || meta.version;
+  log.app_version = log.app_version || APP_VERSION;
+  log.data_version = log.data_version || DATA_VERSION;
+  return log;
+}
+
+// ==================== Supabase 同步核心 ====================
+
+async function syncToSupabase(manual = false) {
+  if (!supabaseClient || !currentUser) {
+    if (manual) showMessage('請先登入', '請先登入後再同步。');
+    return;
+  }
+  if (isSyncing) {
+    if (manual) showMessage('同步中', '背景同步進行中，請稍候。');
+    return;
+  }
+  isSyncing = true;
+  try {
+    await runSupabaseSync();
+    if (manual) showMessage('完成', '同步完成（雲端已更新）。');
+  } catch (error) {
+    console.error('同步失敗:', error);
+    if (manual) showMessage('同步失敗', error.message || '請稍後再試');
+  } finally {
+    isSyncing = false;
+  }
+}
+
+async function runSupabaseSync() {
+  const meta = getQuestionBankMeta();
+  const validQIDs = new Set(allQuestions.map(q => getQID(q)));
+
+  const { data: remoteLogs = [], error: logErr } = await supabaseClient
+    .from('practice_logs')
+    .select('*')
+    .eq('user_id', currentUser.id);
+  if (logErr) throw logErr;
+
+  const localRows = buildLocalLogRows(meta, validQIDs);
+  const mergedRows = mergeRowsLww(localRows, remoteLogs);
+
+  const { error: delErr } = await supabaseClient.from('practice_logs').delete().eq('user_id', currentUser.id);
+  if (delErr) throw delErr;
+  if (mergedRows.length > 0) {
+    const { error: insErr } = await supabaseClient.from('practice_logs').insert(mergedRows);
+    if (insErr) throw insErr;
+  }
+
+  const { data: remoteStateArr = [], error: stateErr } = await supabaseClient
+    .from('session_state')
+    .select('*')
+    .eq('user_id', currentUser.id);
+  if (stateErr) throw stateErr;
+  const remoteState = remoteStateArr[0] || null;
+  const localState = buildLocalSessionRow(meta, validQIDs);
+  const mergedState = mergeStateLww(localState, remoteState);
+
+  if (mergedState) {
+    // upsert 以避免 PK 衝突
+    mergedState.user_id = currentUser.id;
+    const { error: upsertErr } = await supabaseClient
+      .from('session_state')
+      .upsert(mergedState, { onConflict: 'user_id' });
+    if (upsertErr) throw upsertErr;
+  } else {
+    // 沒有資料時刪除
+    const { error: delStateErr } = await supabaseClient.from('session_state').delete().eq('user_id', currentUser.id);
+    if (delStateErr) throw delStateErr;
+  }
+
+  practiceLog = mergedRows.map(rowToAppLog);
+  rebuildCachesFromLogs();
+  unfinishedSession = mergedState ? mergedState.payload : null;
+  saveToLocalStorage();
+}
+
+function buildLocalLogRows(meta, validQIDs) {
+  return practiceLog
+    .map(log => normalizeLogRow(log, meta, validQIDs))
+    .filter(Boolean);
+}
+
+function normalizeLogRow(log, meta, validQIDs) {
+  const qid = log.Q_ID || log.qid || log.ExamID || log['題目ID'] || '';
+  if (!qid) return null;
+  if (validQIDs && validQIDs.size > 0 && !validQIDs.has(qid)) return null;
+
+  stampLogForSync(log);
+  const updatedMs = log.updated_at || log.client_updated_at || Date.now();
+
+  const row = {
+    user_id: currentUser.id,
+    qid,
+    result: log.Result || log.result || null,
+    time_spent: Number(log.TimeSeconds || log.time_spent || 0),
+    difficulty: Number(log.ActualDifficulty || log.difficulty || 0),
+    predicted_difficulty: Number(log.PredictedDifficulty || log.predicted_difficulty || 0),
+    note: log.Note || log.Notes || log.note || null,
+    practiced_at: log.EndAt || log.practiced_at || new Date().toISOString(),
+    question_bank_version: meta.version,
+    question_bank_hash: meta.hash,
+    app_version: APP_VERSION,
+    data_version: DATA_VERSION,
+    updated_at: new Date(updatedMs).toISOString()
+  };
+
+  const idVal = log.id || log.uuid;
+  if (idVal) row.id = idVal;
+  return row;
+}
+
+function mergeRowsLww(localRows, remoteRows) {
+  const map = new Map();
+  const addRow = (row) => {
+    const key = `${row.qid}`;
+    const curr = map.get(key);
+    const updated = row.updated_at ? Date.parse(row.updated_at) : 0;
+    if (!curr || updated > curr.updated) {
+      map.set(key, { row, updated });
+    }
+  };
+
+  (remoteRows || []).forEach(r => addRow(r));
+  (localRows || []).forEach(r => addRow(r));
+
+  return Array.from(map.values()).map(v => v.row);
+}
+
+function rowToAppLog(row) {
+  const updatedMs = row.updated_at ? Date.parse(row.updated_at) : Date.now();
+  const practicedDate = row.practiced_at ? new Date(row.practiced_at).toISOString().split('T')[0] : null;
+  return {
+    id: row.id,
+    Q_ID: row.qid,
+    Result: row.result,
+    TimeSeconds: row.time_spent || 0,
+    PredictedDifficulty: row.predicted_difficulty || 0,
+    ActualDifficulty: row.difficulty || 0,
+    Note: row.note,
+    Date: practicedDate,
+    EndAt: row.practiced_at,
+    Mode: row.mode || 'Practice',
+    question_bank_hash: row.question_bank_hash,
+    question_bank_version: row.question_bank_version,
+    app_version: row.app_version,
+    data_version: row.data_version,
+    updated_at: updatedMs
+  };
+}
+
+function buildLocalSessionRow(meta, validQIDs) {
+  if (!unfinishedSession) return null;
+  const payload = { ...unfinishedSession };
+  if (Array.isArray(payload.questions) && validQIDs && validQIDs.size > 0) {
+    payload.questions = payload.questions.filter(q => validQIDs.has(q));
+  }
+  const updatedMs = payload.updated_at || Date.now();
+  return {
+    user_id: currentUser.id,
+    payload,
+    question_bank_version: meta.version,
+    question_bank_hash: meta.hash,
+    app_version: APP_VERSION,
+    data_version: DATA_VERSION,
+    updated_at: new Date(updatedMs).toISOString()
+  };
+}
+
+function mergeStateLww(localState, remoteState) {
+  if (localState && !remoteState) return localState;
+  if (!localState && remoteState) return remoteState;
+  if (!localState && !remoteState) return null;
+  const localMs = localState.updated_at ? Date.parse(localState.updated_at) : 0;
+  const remoteMs = remoteState.updated_at ? Date.parse(remoteState.updated_at) : 0;
+  return localMs >= remoteMs ? localState : remoteState;
 }
 
 function updateCachesWithLog(log) {
@@ -629,6 +875,12 @@ async function loadQuestionBank() {
     progressText.textContent = '正在解析題庫...';
     progressFill.style.width = '50%';
     allQuestions = parseCSV(csvText);
+    const hash = await computeQuestionBankHash(csvText);
+    setQuestionBankMeta({
+      version: 'data.csv',
+      hash,
+      count: allQuestions.length
+    });
     progressText.textContent = '正在儲存資料...';
     progressFill.style.width = '75%';
     saveToLocalStorage();
@@ -673,6 +925,12 @@ async function reloadQuestions() {
       csvText = await response.text();
     }
     allQuestions = parseCSV(csvText);
+    const hash = await computeQuestionBankHash(csvText);
+    setQuestionBankMeta({
+      version: 'data.csv',
+      hash,
+      count: allQuestions.length
+    });
     saveToLocalStorage();
     initListPage();
     showMessage('成功', `題庫已更新。\n目前題數 ${allQuestions.length} 題`);
@@ -1279,6 +1537,7 @@ function logMobileBrowseRating(value) {
 
   // 覆寫同日同題的瀏覽紀錄
   const idx = practiceLog.findIndex(l => l.Q_ID === qid && l.Date === today && l.Mode === 'Browse-Mobile');
+  stampLogForSync(log);
   if (idx >= 0) {
     practiceLog[idx] = log;
   } else {
@@ -1409,7 +1668,8 @@ function startPracticePage() {
     startTime: sessionStartTime,
     predictions: {...predictedDifficulties},
     questionTimes: {...questionTimes},
-    totalSeconds: 0
+    totalSeconds: 0,
+    updated_at: Date.now()
   };
   saveToLocalStorage();
   
@@ -1531,6 +1791,7 @@ function recordResult(result) {
     Mode: isBrowseMode ? 'Browse' : 'Practice'
   };
   
+  stampLogForSync(log);
   practiceLog.push(log);
   updateCachesWithLog(log);
   
@@ -1575,6 +1836,7 @@ function saveBrowseLog() {
   };
   
   const existingIndex = practiceLog.findIndex(l => l.Q_ID === qid && l.Date === today && l.Result === 'Browse');
+  stampLogForSync(log);
   if (existingIndex >= 0) {
     practiceLog[existingIndex] = log;
   } else {
@@ -1636,19 +1898,40 @@ function updateDifficultyStars(value) {
 function saveCurrentNote() {
   currentNote = document.getElementById('practice-notes').value;
   
-  // ?? practiceLog ??????
   const q = practiceQuestions[currentIndex];
   const qid = getQID(q);
   
   const logs = practiceLog.filter(log => log.Q_ID === qid);
   if (logs.length > 0) {
-    logs[logs.length - 1].Note = currentNote;
-    ensureStatusEntry(qid).lastNote = currentNote;
-    saveToLocalStorage();
-    showMessage('??', '?????');
+    const target = logs[logs.length - 1];
+    target.Note = currentNote;
+    target.client_updated_at = Date.now();
+    stampLogForSync(target);
   } else {
-    showMessage('??', '???????/??/?????????');
+    // 若尚無此題紀錄，新增一筆僅含筆記的紀錄
+    const now = new Date();
+    const log = {
+      Q_ID: qid,
+      Date: now.toISOString().split('T')[0],
+      TimeSeconds: 0,
+      PredictedDifficulty: predictedDifficulties[qid] || 0,
+      ActualDifficulty: 0,
+      Note: currentNote,
+      Result: 'NoteOnly',
+      Year: q.Year,
+      School: q.School,
+      StartAt: now.toISOString(),
+      EndAt: now.toISOString(),
+      Mode: 'Note'
+    };
+    stampLogForSync(log);
+    practiceLog.push(log);
+    updateCachesWithLog(log);
   }
+
+  ensureStatusEntry(qid).lastNote = currentNote;
+  saveToLocalStorage();
+  showMessage('成功', '筆記已儲存');
 }
 
 
@@ -1665,7 +1948,8 @@ function saveForLater() {
     startTime: sessionStartTime,
     predictions: {...predictedDifficulties},
     questionTimes: {...questionTimes},
-    totalSeconds: sessionTotalSeconds + Math.floor((Date.now() - sessionStartTime) / 1000)
+    totalSeconds: sessionTotalSeconds + Math.floor((Date.now() - sessionStartTime) / 1000),
+    updated_at: Date.now()
   };
   saveToLocalStorage();
   
@@ -2369,6 +2653,7 @@ function importLogs() {
       data.practiceLog.forEach(log => {
         const key = `${log.Date}-${log.Q_ID}-${log.TimeSeconds}`;
         if (!existingKeys.has(key)) {
+          stampLogForSync(log);
           practiceLog.push(log);
           addedCount++;
         }
