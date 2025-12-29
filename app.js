@@ -614,11 +614,11 @@ async function runSupabaseSync() {
   const localRows = buildLocalLogRows(meta, validQIDs);
   const mergedRows = mergeRowsLww(localRows, remoteLogs);
 
-  const { error: delErr } = await supabaseClient.from('practice_logs').delete().eq('user_id', currentUser.id);
-  if (delErr) throw delErr;
   if (mergedRows.length > 0) {
-    const { error: insErr } = await supabaseClient.from('practice_logs').insert(mergedRows);
-    if (insErr) throw insErr;
+    const { error: upsertErr } = await supabaseClient
+      .from('practice_logs')
+      .upsert(mergedRows, { onConflict: 'id' });
+    if (upsertErr) throw upsertErr;
   }
 
   const { data: remoteStateArr = [], error: stateErr } = await supabaseClient
