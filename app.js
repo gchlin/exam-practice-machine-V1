@@ -578,6 +578,16 @@ function stampLogForSync(log) {
   return log;
 }
 
+function generateUUID() {
+  if (crypto.randomUUID) return crypto.randomUUID();
+  // Fallback 簡易 UUID
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 // ==================== Supabase 同步核心 ====================
 
 async function syncToSupabase(manual = false) {
@@ -679,8 +689,8 @@ function normalizeLogRow(log, meta, validQIDs) {
     updated_at: new Date(updatedMs).toISOString()
   };
 
-  const idVal = log.id || log.uuid;
-  if (idVal) row.id = idVal;
+  const idVal = log.id || log.uuid || generateUUID();
+  row.id = idVal;
   return row;
 }
 
@@ -691,6 +701,7 @@ function mergeRowsLww(localRows, remoteRows) {
     const curr = map.get(key);
     const updated = row.updated_at ? Date.parse(row.updated_at) : 0;
     if (!curr || updated > curr.updated) {
+      if (!row.id) row.id = generateUUID();
       map.set(key, { row, updated });
     }
   };
