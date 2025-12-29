@@ -43,10 +43,20 @@ let dailyStats = {};
 // 未完成會話
 let unfinishedSession = null;
 
+// ==================== Supabase Auth 設定 ====================
+const SUPABASE_URL = window.SUPABASE_URL || 'https://hnnpdkzanxxsoyvarcrk.supabase.co';
+const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'sb_publishable_qM_ImDglw0twPIXJiRcExg_M4zrsSpm';
+let supabaseClient = null;
+let currentUser = null;
+let authInitFailed = false;
+
 // ==================== 初始化 ====================
 
 document.addEventListener('DOMContentLoaded', () => {
   console.log('刷題機 V2.0 啟動...');
+  
+  // 初始化登入/註冊（Supabase Auth）
+  initAuth();
   
   // 載入主題
   loadTheme();
@@ -194,6 +204,122 @@ function bindEvents() {
 
   // 手機模式初始化
   initMobileMode();
+}
+
+// ==================== 登入 / 註冊 (Supabase Auth) ====================
+
+function initAuth() {
+  const emailInput = document.getElementById('auth-email');
+  const pwdInput = document.getElementById('auth-password');
+  const signUpBtn = document.getElementById('btn-signup');
+  const signInBtn = document.getElementById('btn-signin');
+  const signOutBtn = document.getElementById('btn-signout');
+
+  // 若畫面沒有 auth 元件則略過
+  if (!emailInput || !pwdInput || !signUpBtn || !signInBtn || !signOutBtn) {
+    console.warn('Auth UI not found, skipping initAuth');
+    return;
+  }
+
+  // 未設定 Supabase 時提醒，但不阻斷其他功能
+  if (!window.supabase) {
+    setAuthStatus('Supabase SDK 未載入', true);
+    authInitFailed = true;
+    return;
+  }
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY || SUPABASE_URL.includes('YOUR-PROJECT') || SUPABASE_ANON_KEY === 'YOUR_ANON_KEY') {
+    setAuthStatus('請填 Supabase URL / Anon Key', true);
+    authInitFailed = true;
+    return;
+  }
+
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  setAuthStatus('未登入', false);
+  updateAuthUI(null);
+
+  signUpBtn.addEventListener('click', async () => {
+    const email = emailInput.value.trim();
+    const password = pwdInput.value.trim();
+    if (!email || !password) {
+      setAuthStatus('請輸入 Email / 密碼', true);
+      return;
+    }
+    setAuthBusy(true);
+    const { error } = await supabaseClient.auth.signUp({ email, password });
+    if (error) {
+      setAuthStatus(error.message, true);
+    } else {
+      setAuthStatus('註冊成功，請查收驗證信或直接登入', false);
+    }
+    setAuthBusy(false);
+  });
+
+  signInBtn.addEventListener('click', async () => {
+    const email = emailInput.value.trim();
+    const password = pwdInput.value.trim();
+    if (!email || !password) {
+      setAuthStatus('請輸入 Email / 密碼', true);
+      return;
+    }
+    setAuthBusy(true);
+    const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    if (error) {
+      setAuthStatus(error.message, true);
+    } else {
+      setAuthStatus('登入成功', false);
+    }
+    setAuthBusy(false);
+  });
+
+  signOutBtn.addEventListener('click', async () => {
+    setAuthBusy(true);
+    await supabaseClient.auth.signOut();
+    setAuthBusy(false);
+  });
+
+  supabaseClient.auth.onAuthStateChange((event, session) => {
+    currentUser = session?.user || null;
+    updateAuthUI(currentUser);
+    if (!currentUser) {
+      setAuthStatus('未登入', false);
+      return;
+    }
+    setAuthStatus(`已登入：${currentUser.email || ''}`, false);
+    // 後續的雲端同步可在這裡靜默觸發
+  });
+}
+
+function setAuthStatus(text, isError = false) {
+  const el = document.getElementById('auth-status');
+  if (!el) return;
+  el.textContent = text;
+  el.style.color = isError ? 'red' : '#333';
+}
+
+function updateAuthUI(user) {
+  const signInBtn = document.getElementById('btn-signin');
+  const signUpBtn = document.getElementById('btn-signup');
+  const signOutBtn = document.getElementById('btn-signout');
+  const emailInput = document.getElementById('auth-email');
+  const pwdInput = document.getElementById('auth-password');
+  const loggedIn = !!user;
+
+  if (signInBtn) signInBtn.style.display = loggedIn ? 'none' : 'inline-block';
+  if (signUpBtn) signUpBtn.style.display = loggedIn ? 'none' : 'inline-block';
+  if (signOutBtn) signOutBtn.style.display = loggedIn ? 'inline-block' : 'none';
+  if (emailInput) emailInput.disabled = loggedIn;
+  if (pwdInput) pwdInput.disabled = loggedIn;
+}
+
+function setAuthBusy(isBusy) {
+  ['btn-signup', 'btn-signin', 'btn-signout', 'auth-email', 'auth-password'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.disabled = isBusy;
+  });
+  if (isBusy) {
+    setAuthStatus('處理中...', false);
+  }
 }
 
 // ==================== 手機模式 ====================
