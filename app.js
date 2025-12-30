@@ -43,6 +43,7 @@ let dailyStats = {};
 // 未完成會話
 let unfinishedSession = null;
 let questionBankMeta = { version: 'unknown', hash: 'unknown' };
+let lastQuestionCount = 0;
 
 const APP_VERSION = '2.0';
 const DATA_VERSION = '1.0';
@@ -54,6 +55,10 @@ let supabaseClient = null;
 let currentUser = null;
 let authInitFailed = false;
 let isSyncing = false;
+let enableBackgroundSync = window.DEFAULT_ENABLE_BACKGROUND_SYNC === true;
+let pendingBackgroundSync = false;
+let syncRetryCount = 0;
+const SYNC_RETRY_DELAYS = [60 * 1000, 5 * 60 * 1000, 5 * 60 * 1000]; // 1m,5m,5m
 
 // ==================== 初始化 ====================
 
@@ -220,6 +225,7 @@ function initAuth() {
   const signUpBtn = document.getElementById('btn-signup');
   const signInBtn = document.getElementById('btn-signin');
   const signOutBtn = document.getElementById('btn-signout');
+  const bgSyncToggle = document.getElementById('toggle-bg-sync');
 
   // 若畫面沒有 auth 元件則略過
   if (!emailInput || !pwdInput || !signUpBtn || !signInBtn || !signOutBtn) {
@@ -283,6 +289,14 @@ function initAuth() {
     setAuthBusy(false);
   });
 
+  if (bgSyncToggle) {
+    bgSyncToggle.checked = enableBackgroundSync;
+    bgSyncToggle.addEventListener('change', () => {
+      enableBackgroundSync = bgSyncToggle.checked;
+      saveToLocalStorage();
+    });
+  }
+
   supabaseClient.auth.onAuthStateChange((event, session) => {
     currentUser = session?.user || null;
     updateAuthUI(currentUser);
@@ -309,6 +323,7 @@ function updateAuthUI(user) {
   const signOutBtn = document.getElementById('btn-signout');
   const emailInput = document.getElementById('auth-email');
   const pwdInput = document.getElementById('auth-password');
+  const bgSyncToggle = document.getElementById('toggle-bg-sync');
   const loggedIn = !!user;
 
   if (signInBtn) signInBtn.style.display = loggedIn ? 'none' : 'inline-block';
@@ -316,6 +331,10 @@ function updateAuthUI(user) {
   if (signOutBtn) signOutBtn.style.display = loggedIn ? 'inline-block' : 'none';
   if (emailInput) emailInput.disabled = loggedIn;
   if (pwdInput) pwdInput.disabled = loggedIn;
+  if (bgSyncToggle) {
+    bgSyncToggle.checked = enableBackgroundSync;
+    bgSyncToggle.disabled = false;
+  }
 }
 
 function setAuthBusy(isBusy) {
@@ -458,6 +477,7 @@ function saveToLocalStorage() {
     localStorage.setItem('questionTimes', JSON.stringify(questionTimes));
     localStorage.setItem('mobileBrowseTimes', JSON.stringify(mobileBrowseTimes));
     localStorage.setItem('questionBankMeta', JSON.stringify(questionBankMeta));
+    localStorage.setItem('enableBackgroundSync', JSON.stringify(enableBackgroundSync));
     console.log('localStorage saved');
   } catch (e) {
     console.error('save failed:', e);
@@ -479,6 +499,7 @@ function loadFromLocalStorage() {
     const qt = localStorage.getItem('questionTimes');
     const mbt = localStorage.getItem('mobileBrowseTimes');
     const qb = localStorage.getItem('questionBankMeta');
+    const bs = localStorage.getItem('enableBackgroundSync');
 
     if (q) allQuestions = JSON.parse(q);
     if (p) practiceLog = JSON.parse(p);
@@ -491,6 +512,7 @@ function loadFromLocalStorage() {
     if (qt) questionTimes = JSON.parse(qt);
     if (mbt) mobileBrowseTimes = JSON.parse(mbt);
     if (qb) questionBankMeta = JSON.parse(qb);
+    if (bs !== null) enableBackgroundSync = JSON.parse(bs);
 
     if (!Array.isArray(allQuestions)) allQuestions = [];
     if (!Array.isArray(practiceLog)) practiceLog = [];
@@ -588,6 +610,14 @@ function generateUUID() {
   });
 }
 
+function chunkArray(arr, size) {
+  const res = [];
+  for (let i = 0; i < arr.length; i += size) {
+    res.push(arr.slice(i, i + size));
+  }
+  return res;
+}
+
 // ==================== Supabase 同步核心 ====================
 
 async function syncToSupabase(manual = false) {
@@ -603,9 +633,12 @@ async function syncToSupabase(manual = false) {
   try {
     await runSupabaseSync();
     if (manual) showMessage('完成', '同步完成（雲端已更新）。');
+    pendingBackgroundSync = false;
+    syncRetryCount = 0;
   } catch (error) {
     console.error('同步失敗:', error);
     if (manual) showMessage('同步失敗', error.message || '請稍後再試');
+    else scheduleSyncRetry();
   } finally {
     isSyncing = false;
   }
@@ -614,6 +647,8 @@ async function syncToSupabase(manual = false) {
 async function runSupabaseSync() {
   const meta = getQuestionBankMeta();
   const validQIDs = new Set(allQuestions.map(q => getQID(q)));
+  const currentCount = allQuestions.length || 0;
+  const prevCount = questionBankMeta.lastCount || currentCount;
 
   const { data: remoteLogs = [], error: logErr } = await supabaseClient
     .from('practice_logs')
@@ -622,13 +657,39 @@ async function runSupabaseSync() {
   if (logErr) throw logErr;
 
   const localRows = buildLocalLogRows(meta, validQIDs);
-  const mergedRows = mergeRowsLww(localRows, remoteLogs);
+
+  // 題數驟減檢查
+  if (prevCount - currentCount > 50) {
+    const missingLocal = localRows.filter(r => !validQIDs.has(r.qid));
+    const missingRemote = (remoteLogs || []).filter(r => !validQIDs.has(r.qid));
+    const missing = [...missingLocal, ...missingRemote];
+    if (missing.length > 0) {
+      exportMissingLogs(missing);
+      throw new Error(`題庫數量異常，少了 ${prevCount - currentCount} 題，已匯出 ${missing.length} 筆缺失紀錄，請確認後再同步。`);
+    } else {
+      throw new Error(`題庫數量異常，少了 ${prevCount - currentCount} 題，已停止同步。`);
+    }
+  }
+
+  const mergedRows = mergeRowsLww(localRows, remoteLogs, validQIDs);
 
   if (mergedRows.length > 0) {
-    const { error: upsertErr } = await supabaseClient
-      .from('practice_logs')
-      .upsert(mergedRows, { onConflict: 'id' });
-    if (upsertErr) throw upsertErr;
+    const chunks = chunkArray(mergedRows, 100);
+    for (const chunk of chunks) {
+      const { error: upsertErr } = await supabaseClient
+        .from('practice_logs')
+        .upsert(chunk, { onConflict: 'id' });
+      if (upsertErr) {
+        if (String(upsertErr.message || '').includes('practice_logs_pkey')) {
+          const { error: delErr } = await supabaseClient.from('practice_logs').delete().eq('user_id', currentUser.id);
+          if (delErr) throw delErr;
+          const { error: insErr } = await supabaseClient.from('practice_logs').insert(chunk);
+          if (insErr) throw insErr;
+        } else {
+          throw upsertErr;
+        }
+      }
+    }
   }
 
   const { data: remoteStateArr = [], error: stateErr } = await supabaseClient
@@ -656,6 +717,7 @@ async function runSupabaseSync() {
   practiceLog = mergedRows.map(rowToAppLog);
   rebuildCachesFromLogs();
   unfinishedSession = mergedState ? mergedState.payload : null;
+  questionBankMeta.lastCount = currentCount;
   saveToLocalStorage();
 }
 
@@ -694,9 +756,10 @@ function normalizeLogRow(log, meta, validQIDs) {
   return row;
 }
 
-function mergeRowsLww(localRows, remoteRows) {
+function mergeRowsLww(localRows, remoteRows, validQIDs) {
   const map = new Map();
   const addRow = (row) => {
+    if (validQIDs && !validQIDs.has(row.qid)) return;
     const key = `${row.qid}`;
     const curr = map.get(key);
     const updated = row.updated_at ? Date.parse(row.updated_at) : 0;
@@ -716,7 +779,7 @@ function rowToAppLog(row) {
   const updatedMs = row.updated_at ? Date.parse(row.updated_at) : Date.now();
   const practicedDate = row.practiced_at ? new Date(row.practiced_at).toISOString().split('T')[0] : null;
   return {
-    id: row.id,
+    id: row.id || generateUUID(),
     Q_ID: row.qid,
     Result: row.result,
     TimeSeconds: row.time_spent || 0,
@@ -732,6 +795,26 @@ function rowToAppLog(row) {
     data_version: row.data_version,
     updated_at: updatedMs
   };
+}
+
+function exportMissingLogs(logs) {
+  try {
+    const data = {
+      missing: logs,
+      exportDate: new Date().toISOString(),
+      version: APP_VERSION
+    };
+    const jsonStr = JSON.stringify(data, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `missing-logs-${formatDateForFilename(new Date())}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    console.error('匯出缺失紀錄失敗', e);
+  }
 }
 
 function buildLocalSessionRow(meta, validQIDs) {
@@ -759,6 +842,38 @@ function mergeStateLww(localState, remoteState) {
   const localMs = localState.updated_at ? Date.parse(localState.updated_at) : 0;
   const remoteMs = remoteState.updated_at ? Date.parse(remoteState.updated_at) : 0;
   return localMs >= remoteMs ? localState : remoteState;
+}
+
+// ==================== 背景同步與重試 ====================
+
+function scheduleBackgroundSync() {
+  if (!navigator.onLine) {
+    pendingBackgroundSync = true;
+    saveToLocalStorage();
+    return;
+  }
+  if (isSyncing) return;
+  syncRetryCount = 0;
+  setTimeout(() => syncToSupabase(false), 30000); // debounce 30s
+}
+
+function scheduleSyncRetry() {
+  if (syncRetryCount >= SYNC_RETRY_DELAYS.length) {
+    pendingBackgroundSync = true;
+    saveToLocalStorage();
+    showMessage('同步失敗', '背景同步多次失敗，請檢查網路或手動按同步。');
+    return;
+  }
+  const delay = SYNC_RETRY_DELAYS[syncRetryCount];
+  syncRetryCount += 1;
+  setTimeout(() => {
+    if (navigator.onLine) {
+      syncToSupabase(false);
+    } else {
+      pendingBackgroundSync = true;
+      saveToLocalStorage();
+    }
+  }, delay);
 }
 
 function updateCachesWithLog(log) {
@@ -1943,6 +2058,10 @@ function saveCurrentNote() {
   ensureStatusEntry(qid).lastNote = currentNote;
   saveToLocalStorage();
   showMessage('成功', '筆記已儲存');
+
+  if (enableBackgroundSync) {
+    scheduleBackgroundSync();
+  }
 }
 
 
@@ -1969,6 +2088,10 @@ function saveForLater() {
     showPage('list');
     initListPage();
   });
+
+  if (enableBackgroundSync) {
+    scheduleBackgroundSync();
+  }
 }
 
 function endSession() {
@@ -1986,6 +2109,10 @@ function endSession() {
   // 顯示 Summary
   showPage('summary');
   renderSummary();
+
+  if (enableBackgroundSync) {
+    scheduleBackgroundSync();
+  }
 }
 
 

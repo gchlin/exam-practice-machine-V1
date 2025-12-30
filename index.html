@@ -134,6 +134,11 @@
       <button id="btn-signin" class="win98-button small">登入</button>
       <button id="btn-signout" class="win98-button small" style="display:none;">登出</button>
       <span id="auth-status" class="auth-status">未登入</span>
+      <label class="small" style="display:flex; align-items:center; gap:4px; margin-left:8px;">
+        <input type="checkbox" id="toggle-bg-sync" style="margin:0;">
+        <span>啟用背景同步</span>
+      </label>
+      <span class="small" style="color:#666;">（換裝置前請按 ☁️ 同步）</span>
     </div>
 
     <!-- 主要內容 -->
@@ -694,6 +699,10 @@
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    // 背景同步開關預設關閉，可在此覆寫
+    window.DEFAULT_ENABLE_BACKGROUND_SYNC = false;
+  </script>
   <script src="export.js"></script>
   <script src="app.js"></script>
 </body>
