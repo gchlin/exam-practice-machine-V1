@@ -44,6 +44,8 @@ let dailyStats = {};
 let unfinishedSession = null;
 let questionBankMeta = { version: 'unknown', hash: 'unknown' };
 let lastQuestionCount = 0;
+let questionCoverage = { years: [], schools: [], matrix: {} };
+let questionCoverageDirty = true;
 
 const APP_VERSION = '2.0';
 const DATA_VERSION = '1.0';
@@ -151,6 +153,8 @@ function bindEvents() {
   document.getElementById('btn-import-logs').addEventListener('click', importLogs);
   const btnShowStats = document.getElementById('btn-show-stats');
   if (btnShowStats) btnShowStats.addEventListener('click', showStatsAnalysis);
+  const btnShowCoverage = document.getElementById('btn-show-coverage');
+  if (btnShowCoverage) btnShowCoverage.addEventListener('click', showCoverageList);
   
   // 預測頁面
   document.getElementById('btn-back-to-list').addEventListener('click', () => showPage('list'));
@@ -526,6 +530,7 @@ function loadFromLocalStorage() {
     rebuildCachesFromLogs();
 
     console.log(`Loaded ${allQuestions.length} questions`);
+    refreshCoverageMatrix();
   } catch (e) {
     console.error('load failed:', e);
   }
@@ -1001,6 +1006,7 @@ async function loadQuestionBank() {
     progressText.textContent = '正在解析題庫...';
     progressFill.style.width = '50%';
     allQuestions = parseCSV(csvText);
+    refreshCoverageMatrix();
     const hash = await computeQuestionBankHash(csvText);
     setQuestionBankMeta({
       version: 'data.csv',
@@ -1051,6 +1057,7 @@ async function reloadQuestions() {
       csvText = await response.text();
     }
     allQuestions = parseCSV(csvText);
+    refreshCoverageMatrix();
     const hash = await computeQuestionBankHash(csvText);
     setQuestionBankMeta({
       version: 'data.csv',
@@ -1162,6 +1169,19 @@ function sortSchools(list) {
   } catch (e) {
     return list.sort((a, b) => a.localeCompare(b, 'zh-Hant'));
   }
+}
+
+function sortYears(list) {
+  return list.sort((a, b) => {
+    const na = parseInt(a, 10);
+    const nb = parseInt(b, 10);
+    const aValid = !Number.isNaN(na);
+    const bValid = !Number.isNaN(nb);
+    if (aValid && bValid) return na - nb;
+    if (aValid && !bValid) return -1;
+    if (!aValid && bValid) return 1;
+    return String(a).localeCompare(String(b), 'zh-Hant');
+  });
 }
 
 function populateSelect(id, options) {
@@ -1423,6 +1443,100 @@ function showStatsAnalysis() {
   ].join('\n');
 
   showMessage('統計分析', message);
+}
+
+function showCoverageList() {
+  if (questionCoverageDirty) {
+    refreshCoverageMatrix();
+  }
+  renderCoverageTable();
+  const modal = document.getElementById('coverage-modal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function renderCoverageTable() {
+  const head = document.getElementById('coverage-table-head');
+  const body = document.getElementById('coverage-table-body');
+  const emptyHint = document.getElementById('coverage-empty');
+  const wrapper = document.querySelector('.coverage-table-wrapper');
+  if (!head || !body) return;
+
+  const data = questionCoverage || { years: [], schools: [], matrix: {} };
+  const { years = [], schools = [], matrix = {} } = data;
+  const hasData = years.length > 0 && schools.length > 0;
+
+  if (emptyHint) emptyHint.style.display = hasData ? 'none' : 'block';
+  if (wrapper) wrapper.style.display = hasData ? 'block' : 'none';
+
+  head.innerHTML = '';
+  body.innerHTML = '';
+  if (!hasData) return;
+
+  const headerRow = document.createElement('tr');
+  let headerHtml = '<th>學校 / 年份</th>';
+  years.forEach(year => {
+    headerHtml += `<th>${escapeHtml(year)}</th>`;
+  });
+  headerRow.innerHTML = headerHtml;
+  head.appendChild(headerRow);
+
+  schools.forEach(school => {
+    const row = document.createElement('tr');
+    let rowHtml = `<th class="row-school">${escapeHtml(school)}</th>`;
+    years.forEach(year => {
+      const hasQuestion = !!(matrix[year] && matrix[year][school]);
+      rowHtml += `<td>${hasQuestion ? '○' : ''}</td>`;
+    });
+    row.innerHTML = rowHtml;
+    body.appendChild(row);
+  });
+}
+
+function closeCoverageModal() {
+  const modal = document.getElementById('coverage-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function refreshCoverageMatrix() {
+  questionCoverage = buildCoverageMatrix(allQuestions);
+  questionCoverageDirty = false;
+}
+
+function buildCoverageMatrix(questions) {
+  const valid = (questions || []).filter(q => q && q.Year && q.School);
+  if (valid.length === 0) {
+    return { years: [], schools: [], matrix: {} };
+  }
+
+  const years = sortYears([...new Set(valid.map(q => q.Year))]);
+  const schools = sortSchools([...new Set(valid.map(q => q.School))]);
+  const matrix = {};
+
+  years.forEach(year => {
+    matrix[year] = {};
+    schools.forEach(school => {
+      matrix[year][school] = false;
+    });
+  });
+
+  valid.forEach(q => {
+    const year = q.Year;
+    const school = q.School;
+    if (!matrix[year]) matrix[year] = {};
+    matrix[year][school] = true;
+  });
+
+  return { years, schools, matrix };
+}
+
+function escapeHtml(str) {
+  const text = str == null ? '' : String(str);
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function getSelectedQuestions() {

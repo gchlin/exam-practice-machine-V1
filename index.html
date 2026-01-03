@@ -96,6 +96,54 @@
       text-align: center;
       color: #000;
     }
+    .coverage-table-wrapper {
+      max-height: 70vh;
+      overflow: auto;
+      background: #fdfdfd;
+      padding: 10px;
+      border: 2px solid #6b6b6b;
+      box-shadow: inset 0 1px 0 #fff, inset 1px 0 0 #fff, 0 2px 6px rgba(0, 0, 0, 0.2);
+    }
+    .coverage-table th,
+    .coverage-table td {
+      white-space: nowrap;
+      vertical-align: top;
+      text-align: center;
+      border: 1px solid #b6b6b6;
+      padding: 6px 10px;
+      font-size: 13px;
+    }
+    .coverage-table th.row-school {
+      text-align: left;
+    }
+    .coverage-table thead th {
+      background: linear-gradient(#f7f7f7, #dfdfdf);
+      font-weight: 700;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    .coverage-table tbody th {
+      background: #f4f4f4;
+      font-weight: 600;
+      position: sticky;
+      left: 0;
+      z-index: 1;
+    }
+    .coverage-table tbody tr:nth-child(odd) td {
+      background: #fafafa;
+    }
+    .coverage-table td {
+      font-size: 16px;
+      color: #222;
+    }
+    .coverage-table thead th {
+      color: #111;
+    }
+    .coverage-modal .modal-content {
+      max-width: 95vw;
+      width: auto;
+    }
     @keyframes spin {
       from { transform: rotate(0deg); }
       to { transform: rotate(360deg); }
@@ -211,6 +259,7 @@
               <button id="btn-export-logs" class="win98-button small" title="匯出答題記錄">📤 匯出</button>
               <button id="btn-import-logs" class="win98-button small" title="匯入答題記錄">📥 匯入</button>
               <button id="btn-show-stats" class="win98-button small">統計分析</button>
+              <button id="btn-show-coverage" class="win98-button small">收錄題目列表</button>
             </div>
           </div>
         </div>
@@ -617,6 +666,26 @@
   </div>
 
   <!-- 對話框：通用訊息 -->
+  <!-- 收錄題目列表 -->
+  <div id="coverage-modal" class="modal" style="display: none;" onclick="closeCoverageModal()">
+    <div class="modal-content coverage-modal" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <span>收錄題目列表</span>
+        <span class="modal-close" onclick="closeCoverageModal()">&times;</span>
+      </div>
+      <div class="modal-body">
+        <p class="small" id="coverage-empty" style="display:none;">目前尚未收錄題目，請先載入新的題庫。</p>
+        <div class="small" style="margin-bottom: 8px;">第一行為年份（由小到大），第一列為學校（筆順排序）。</div>
+        <div class="coverage-table-wrapper">
+          <table id="coverage-table" class="compact-table coverage-table">
+            <thead id="coverage-table-head"></thead>
+            <tbody id="coverage-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="message-modal" class="modal" style="display: none;">
     <div class="modal-content modal-small">
       <div class="modal-header">
