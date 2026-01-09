@@ -42,11 +42,34 @@ let dailyStats = {};
 
 // 未完成會話
 let unfinishedSession = null;
+let questionBankMeta = { version: 'unknown', hash: 'unknown' };
+let lastQuestionCount = 0;
+let questionCoverage = { years: [], schools: [], matrix: {} };
+let questionCoverageDirty = true;
+
+const APP_VERSION = '2.0';
+const DATA_VERSION = '1.0';
+
+// ==================== Supabase Auth 設定 ====================
+const SUPABASE_URL = window.SUPABASE_URL || 'https://hnnpdkzanxxsoyvarcrk.supabase.co';
+const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'sb_publishable_qM_ImDglw0twPIXJiRcExg_M4zrsSpm';
+let supabaseClient = null;
+let currentUser = null;
+let authInitFailed = false;
+let isSyncing = false;
+let enableBackgroundSync = window.DEFAULT_ENABLE_BACKGROUND_SYNC === true;
+let pendingBackgroundSync = false;
+let syncRetryCount = 0;
+const SYNC_RETRY_DELAYS = [60 * 1000, 5 * 60 * 1000, 5 * 60 * 1000]; // 1m,5m,5m
 
 // ==================== 初始化 ====================
 
 document.addEventListener('DOMContentLoaded', () => {
   console.log('刷題機 V2.0 啟動...');
+  
+  // 初始化登入/註冊（Supabase Auth）
+  initAuth();
+  getDeviceId(); // 確保每個裝置有唯一 ID
   
   // 載入主題
   loadTheme();
@@ -120,7 +143,7 @@ function bindEvents() {
   if (showSchoolCheckbox) showSchoolCheckbox.addEventListener('change', renderQuestionList);
   
   // 雲端同步
-  document.getElementById('btn-sync-cloud').addEventListener('click', syncToCloud);
+  document.getElementById('btn-sync-cloud').addEventListener('click', () => syncToSupabase(true));
   
   // 重新載入題庫
   document.getElementById('btn-reload-questions').addEventListener('click', reloadQuestions);
@@ -130,6 +153,8 @@ function bindEvents() {
   document.getElementById('btn-import-logs').addEventListener('click', importLogs);
   const btnShowStats = document.getElementById('btn-show-stats');
   if (btnShowStats) btnShowStats.addEventListener('click', showStatsAnalysis);
+  const btnShowCoverage = document.getElementById('btn-show-coverage');
+  if (btnShowCoverage) btnShowCoverage.addEventListener('click', showCoverageList);
   
   // 預測頁面
   document.getElementById('btn-back-to-list').addEventListener('click', () => showPage('list'));
@@ -194,6 +219,137 @@ function bindEvents() {
 
   // 手機模式初始化
   initMobileMode();
+}
+
+// ==================== 登入 / 註冊 (Supabase Auth) ====================
+
+function initAuth() {
+  const emailInput = document.getElementById('auth-email');
+  const pwdInput = document.getElementById('auth-password');
+  const signUpBtn = document.getElementById('btn-signup');
+  const signInBtn = document.getElementById('btn-signin');
+  const signOutBtn = document.getElementById('btn-signout');
+  const bgSyncToggle = document.getElementById('toggle-bg-sync');
+
+  // 若畫面沒有 auth 元件則略過
+  if (!emailInput || !pwdInput || !signUpBtn || !signInBtn || !signOutBtn) {
+    console.warn('Auth UI not found, skipping initAuth');
+    return;
+  }
+
+  // 未設定 Supabase 時提醒，但不阻斷其他功能
+  if (!window.supabase) {
+    setAuthStatus('Supabase SDK 未載入', true);
+    authInitFailed = true;
+    return;
+  }
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY || SUPABASE_URL.includes('YOUR-PROJECT') || SUPABASE_ANON_KEY === 'YOUR_ANON_KEY') {
+    setAuthStatus('請填 Supabase URL / Anon Key', true);
+    authInitFailed = true;
+    return;
+  }
+
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  setAuthStatus('未登入', false);
+  updateAuthUI(null);
+
+  signUpBtn.addEventListener('click', async () => {
+    const email = emailInput.value.trim();
+    const password = pwdInput.value.trim();
+    if (!email || !password) {
+      setAuthStatus('請輸入 Email / 密碼', true);
+      return;
+    }
+    setAuthBusy(true);
+    const { error } = await supabaseClient.auth.signUp({ email, password });
+    if (error) {
+      setAuthStatus(error.message, true);
+    } else {
+      setAuthStatus('註冊成功，請查收驗證信或直接登入', false);
+    }
+    setAuthBusy(false);
+  });
+
+  signInBtn.addEventListener('click', async () => {
+    const email = emailInput.value.trim();
+    const password = pwdInput.value.trim();
+    if (!email || !password) {
+      setAuthStatus('請輸入 Email / 密碼', true);
+      return;
+    }
+    setAuthBusy(true);
+    const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    if (error) {
+      setAuthStatus(error.message, true);
+    } else {
+      setAuthStatus('登入成功', false);
+    }
+    setAuthBusy(false);
+  });
+
+  signOutBtn.addEventListener('click', async () => {
+    setAuthBusy(true);
+    await supabaseClient.auth.signOut();
+    setAuthBusy(false);
+  });
+
+  if (bgSyncToggle) {
+    bgSyncToggle.checked = enableBackgroundSync;
+    bgSyncToggle.addEventListener('change', () => {
+      enableBackgroundSync = bgSyncToggle.checked;
+      saveToLocalStorage();
+    });
+  }
+
+  supabaseClient.auth.onAuthStateChange((event, session) => {
+    currentUser = session?.user || null;
+    updateAuthUI(currentUser);
+    if (!currentUser) {
+      setAuthStatus('未登入', false);
+      return;
+    }
+    setAuthStatus(`已登入：${currentUser.email || ''}`, false);
+    // 靜默觸發雲端同步
+    syncToSupabase(false);
+  });
+}
+
+function setAuthStatus(text, isError = false) {
+  const el = document.getElementById('auth-status');
+  if (!el) return;
+  el.textContent = text;
+  el.style.color = isError ? 'red' : '#333';
+}
+
+function updateAuthUI(user) {
+  const signInBtn = document.getElementById('btn-signin');
+  const signUpBtn = document.getElementById('btn-signup');
+  const signOutBtn = document.getElementById('btn-signout');
+  const emailInput = document.getElementById('auth-email');
+  const pwdInput = document.getElementById('auth-password');
+  const bgSyncToggle = document.getElementById('toggle-bg-sync');
+  const loggedIn = !!user;
+
+  if (signInBtn) signInBtn.style.display = loggedIn ? 'none' : 'inline-block';
+  if (signUpBtn) signUpBtn.style.display = loggedIn ? 'none' : 'inline-block';
+  if (signOutBtn) signOutBtn.style.display = loggedIn ? 'inline-block' : 'none';
+  if (emailInput) emailInput.disabled = loggedIn;
+  if (pwdInput) pwdInput.disabled = loggedIn;
+  if (bgSyncToggle) {
+    bgSyncToggle.checked = enableBackgroundSync;
+    bgSyncToggle.disabled = false;
+  }
+}
+
+function setAuthBusy(isBusy) {
+  ['btn-signup', 'btn-signin', 'btn-signout', 'auth-email', 'auth-password'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.disabled = isBusy;
+  });
+  if (isBusy) {
+    setAuthStatus('處理中...', false);
+  }
 }
 
 // ==================== 手機模式 ====================
@@ -321,6 +477,11 @@ function saveToLocalStorage() {
     localStorage.setItem('unfinishedSession', JSON.stringify(unfinishedSession));
     localStorage.setItem('statusMap', JSON.stringify(statusMap));
     localStorage.setItem('dailyStats', JSON.stringify(dailyStats));
+    localStorage.setItem('predictedDifficulties', JSON.stringify(predictedDifficulties));
+    localStorage.setItem('questionTimes', JSON.stringify(questionTimes));
+    localStorage.setItem('mobileBrowseTimes', JSON.stringify(mobileBrowseTimes));
+    localStorage.setItem('questionBankMeta', JSON.stringify(questionBankMeta));
+    localStorage.setItem('enableBackgroundSync', JSON.stringify(enableBackgroundSync));
     console.log('localStorage saved');
   } catch (e) {
     console.error('save failed:', e);
@@ -338,6 +499,11 @@ function loadFromLocalStorage() {
     const u = localStorage.getItem('unfinishedSession');
     const s = localStorage.getItem('statusMap');
     const d = localStorage.getItem('dailyStats');
+    const pd = localStorage.getItem('predictedDifficulties');
+    const qt = localStorage.getItem('questionTimes');
+    const mbt = localStorage.getItem('mobileBrowseTimes');
+    const qb = localStorage.getItem('questionBankMeta');
+    const bs = localStorage.getItem('enableBackgroundSync');
 
     if (q) allQuestions = JSON.parse(q);
     if (p) practiceLog = JSON.parse(p);
@@ -346,6 +512,11 @@ function loadFromLocalStorage() {
     if (u) unfinishedSession = JSON.parse(u);
     if (s) statusMap = JSON.parse(s);
     if (d) dailyStats = JSON.parse(d);
+    if (pd) predictedDifficulties = JSON.parse(pd);
+    if (qt) questionTimes = JSON.parse(qt);
+    if (mbt) mobileBrowseTimes = JSON.parse(mbt);
+    if (qb) questionBankMeta = JSON.parse(qb);
+    if (bs !== null) enableBackgroundSync = JSON.parse(bs);
 
     if (!Array.isArray(allQuestions)) allQuestions = [];
     if (!Array.isArray(practiceLog)) practiceLog = [];
@@ -359,6 +530,7 @@ function loadFromLocalStorage() {
     rebuildCachesFromLogs();
 
     console.log(`Loaded ${allQuestions.length} questions`);
+    refreshCoverageMatrix();
   } catch (e) {
     console.error('load failed:', e);
   }
@@ -376,6 +548,337 @@ function rebuildCachesFromLogs() {
   practiceLog.forEach(log => {
     updateCachesWithLog(log);
   });
+}
+
+// ==================== 同步輔助 ====================
+
+function getDeviceId() {
+  let id = localStorage.getItem('deviceId');
+  if (!id) {
+    id = (crypto.randomUUID && crypto.randomUUID()) || `dev-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    localStorage.setItem('deviceId', id);
+  }
+  return id;
+}
+
+function getQuestionBankMeta() {
+  if (!questionBankMeta || !questionBankMeta.hash) {
+    questionBankMeta = {
+      version: questionBankMeta?.version || 'unknown',
+      hash: questionBankMeta?.hash || `count-${allQuestions.length || 0}`,
+      count: allQuestions.length || 0
+    };
+  }
+  return questionBankMeta;
+}
+
+function setQuestionBankMeta(meta) {
+  questionBankMeta = meta || { version: 'unknown', hash: 'unknown', count: allQuestions.length || 0 };
+  localStorage.setItem('questionBankMeta', JSON.stringify(questionBankMeta));
+}
+
+async function computeQuestionBankHash(text) {
+  if (!text) return `count-${allQuestions.length || 0}`;
+  try {
+    const enc = new TextEncoder();
+    const data = enc.encode(text);
+    const digest = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(digest));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch (e) {
+    console.warn('hash failed, fallback to length', e);
+    return `len-${text.length}`;
+  }
+}
+
+function stampLogForSync(log) {
+  if (!log) return log;
+  const now = Date.now();
+  log.client_updated_at = log.client_updated_at || now;
+  log.updated_at = log.client_updated_at;
+  log.device_id = log.device_id || getDeviceId();
+  const meta = getQuestionBankMeta();
+  log.question_bank_hash = log.question_bank_hash || meta.hash;
+  log.question_bank_version = log.question_bank_version || meta.version;
+  log.app_version = log.app_version || APP_VERSION;
+  log.data_version = log.data_version || DATA_VERSION;
+  return log;
+}
+
+function generateUUID() {
+  if (crypto.randomUUID) return crypto.randomUUID();
+  // Fallback 簡易 UUID
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+function chunkArray(arr, size) {
+  const res = [];
+  for (let i = 0; i < arr.length; i += size) {
+    res.push(arr.slice(i, i + size));
+  }
+  return res;
+}
+
+// ==================== Supabase 同步核心 ====================
+
+async function syncToSupabase(manual = false) {
+  if (!supabaseClient || !currentUser) {
+    if (manual) showMessage('請先登入', '請先登入後再同步。');
+    return;
+  }
+  if (isSyncing) {
+    if (manual) showMessage('同步中', '背景同步進行中，請稍候。');
+    return;
+  }
+  isSyncing = true;
+  try {
+    await runSupabaseSync();
+    if (manual) showMessage('完成', '同步完成（雲端已更新）。');
+    pendingBackgroundSync = false;
+    syncRetryCount = 0;
+  } catch (error) {
+    console.error('同步失敗:', error);
+    if (manual) showMessage('同步失敗', error.message || '請稍後再試');
+    else scheduleSyncRetry();
+  } finally {
+    isSyncing = false;
+  }
+}
+
+async function runSupabaseSync() {
+  const meta = getQuestionBankMeta();
+  const validQIDs = new Set(allQuestions.map(q => getQID(q)));
+  const currentCount = allQuestions.length || 0;
+  const prevCount = questionBankMeta.lastCount || currentCount;
+
+  const { data: remoteLogs = [], error: logErr } = await supabaseClient
+    .from('practice_logs')
+    .select('*')
+    .eq('user_id', currentUser.id);
+  if (logErr) throw logErr;
+
+  const localRows = buildLocalLogRows(meta, validQIDs);
+
+  // 題數驟減檢查
+  if (prevCount - currentCount > 50) {
+    const missingLocal = localRows.filter(r => !validQIDs.has(r.qid));
+    const missingRemote = (remoteLogs || []).filter(r => !validQIDs.has(r.qid));
+    const missing = [...missingLocal, ...missingRemote];
+    if (missing.length > 0) {
+      exportMissingLogs(missing);
+      throw new Error(`題庫數量異常，少了 ${prevCount - currentCount} 題，已匯出 ${missing.length} 筆缺失紀錄，請確認後再同步。`);
+    } else {
+      throw new Error(`題庫數量異常，少了 ${prevCount - currentCount} 題，已停止同步。`);
+    }
+  }
+
+  const mergedRows = mergeRowsLww(localRows, remoteLogs, validQIDs);
+
+  if (mergedRows.length > 0) {
+    const chunks = chunkArray(mergedRows, 100);
+    for (const chunk of chunks) {
+      const { error: upsertErr } = await supabaseClient
+        .from('practice_logs')
+        .upsert(chunk, { onConflict: 'id' });
+      if (upsertErr) {
+        if (String(upsertErr.message || '').includes('practice_logs_pkey')) {
+          const { error: delErr } = await supabaseClient.from('practice_logs').delete().eq('user_id', currentUser.id);
+          if (delErr) throw delErr;
+          const { error: insErr } = await supabaseClient.from('practice_logs').insert(chunk);
+          if (insErr) throw insErr;
+        } else {
+          throw upsertErr;
+        }
+      }
+    }
+  }
+
+  const { data: remoteStateArr = [], error: stateErr } = await supabaseClient
+    .from('session_state')
+    .select('*')
+    .eq('user_id', currentUser.id);
+  if (stateErr) throw stateErr;
+  const remoteState = remoteStateArr[0] || null;
+  const localState = buildLocalSessionRow(meta, validQIDs);
+  const mergedState = mergeStateLww(localState, remoteState);
+
+  if (mergedState) {
+    // upsert 以避免 PK 衝突
+    mergedState.user_id = currentUser.id;
+    const { error: upsertErr } = await supabaseClient
+      .from('session_state')
+      .upsert(mergedState, { onConflict: 'user_id' });
+    if (upsertErr) throw upsertErr;
+  } else {
+    // 沒有資料時刪除
+    const { error: delStateErr } = await supabaseClient.from('session_state').delete().eq('user_id', currentUser.id);
+    if (delStateErr) throw delStateErr;
+  }
+
+  practiceLog = mergedRows.map(rowToAppLog);
+  rebuildCachesFromLogs();
+  unfinishedSession = mergedState ? mergedState.payload : null;
+  questionBankMeta.lastCount = currentCount;
+  saveToLocalStorage();
+}
+
+function buildLocalLogRows(meta, validQIDs) {
+  return practiceLog
+    .map(log => normalizeLogRow(log, meta, validQIDs))
+    .filter(Boolean);
+}
+
+function normalizeLogRow(log, meta, validQIDs) {
+  const qid = log.Q_ID || log.qid || log.ExamID || log['題目ID'] || '';
+  if (!qid) return null;
+  if (validQIDs && validQIDs.size > 0 && !validQIDs.has(qid)) return null;
+
+  stampLogForSync(log);
+  const updatedMs = log.updated_at || log.client_updated_at || Date.now();
+
+  const row = {
+    user_id: currentUser.id,
+    qid,
+    result: log.Result || log.result || null,
+    time_spent: Number(log.TimeSeconds || log.time_spent || 0),
+    difficulty: Number(log.ActualDifficulty || log.difficulty || 0),
+    predicted_difficulty: Number(log.PredictedDifficulty || log.predicted_difficulty || 0),
+    note: log.Note || log.Notes || log.note || null,
+    practiced_at: log.EndAt || log.practiced_at || new Date().toISOString(),
+    question_bank_version: meta.version,
+    question_bank_hash: meta.hash,
+    app_version: APP_VERSION,
+    data_version: DATA_VERSION,
+    updated_at: new Date(updatedMs).toISOString()
+  };
+
+  const idVal = log.id || log.uuid || generateUUID();
+  row.id = idVal;
+  return row;
+}
+
+function mergeRowsLww(localRows, remoteRows, validQIDs) {
+  const map = new Map();
+  const addRow = (row) => {
+    if (validQIDs && !validQIDs.has(row.qid)) return;
+    const key = `${row.qid}`;
+    const curr = map.get(key);
+    const updated = row.updated_at ? Date.parse(row.updated_at) : 0;
+    if (!curr || updated > curr.updated) {
+      if (!row.id) row.id = generateUUID();
+      map.set(key, { row, updated });
+    }
+  };
+
+  (remoteRows || []).forEach(r => addRow(r));
+  (localRows || []).forEach(r => addRow(r));
+
+  return Array.from(map.values()).map(v => v.row);
+}
+
+function rowToAppLog(row) {
+  const updatedMs = row.updated_at ? Date.parse(row.updated_at) : Date.now();
+  const practicedDate = row.practiced_at ? new Date(row.practiced_at).toISOString().split('T')[0] : null;
+  return {
+    id: row.id || generateUUID(),
+    Q_ID: row.qid,
+    Result: row.result,
+    TimeSeconds: row.time_spent || 0,
+    PredictedDifficulty: row.predicted_difficulty || 0,
+    ActualDifficulty: row.difficulty || 0,
+    Note: row.note,
+    Date: practicedDate,
+    EndAt: row.practiced_at,
+    Mode: row.mode || 'Practice',
+    question_bank_hash: row.question_bank_hash,
+    question_bank_version: row.question_bank_version,
+    app_version: row.app_version,
+    data_version: row.data_version,
+    updated_at: updatedMs
+  };
+}
+
+function exportMissingLogs(logs) {
+  try {
+    const data = {
+      missing: logs,
+      exportDate: new Date().toISOString(),
+      version: APP_VERSION
+    };
+    const jsonStr = JSON.stringify(data, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `missing-logs-${formatDateForFilename(new Date())}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    console.error('匯出缺失紀錄失敗', e);
+  }
+}
+
+function buildLocalSessionRow(meta, validQIDs) {
+  if (!unfinishedSession) return null;
+  const payload = { ...unfinishedSession };
+  if (Array.isArray(payload.questions) && validQIDs && validQIDs.size > 0) {
+    payload.questions = payload.questions.filter(q => validQIDs.has(q));
+  }
+  const updatedMs = payload.updated_at || Date.now();
+  return {
+    user_id: currentUser.id,
+    payload,
+    question_bank_version: meta.version,
+    question_bank_hash: meta.hash,
+    app_version: APP_VERSION,
+    data_version: DATA_VERSION,
+    updated_at: new Date(updatedMs).toISOString()
+  };
+}
+
+function mergeStateLww(localState, remoteState) {
+  if (localState && !remoteState) return localState;
+  if (!localState && remoteState) return remoteState;
+  if (!localState && !remoteState) return null;
+  const localMs = localState.updated_at ? Date.parse(localState.updated_at) : 0;
+  const remoteMs = remoteState.updated_at ? Date.parse(remoteState.updated_at) : 0;
+  return localMs >= remoteMs ? localState : remoteState;
+}
+
+// ==================== 背景同步與重試 ====================
+
+function scheduleBackgroundSync() {
+  if (!navigator.onLine) {
+    pendingBackgroundSync = true;
+    saveToLocalStorage();
+    return;
+  }
+  if (isSyncing) return;
+  syncRetryCount = 0;
+  setTimeout(() => syncToSupabase(false), 30000); // debounce 30s
+}
+
+function scheduleSyncRetry() {
+  if (syncRetryCount >= SYNC_RETRY_DELAYS.length) {
+    pendingBackgroundSync = true;
+    saveToLocalStorage();
+    showMessage('同步失敗', '背景同步多次失敗，請檢查網路或手動按同步。');
+    return;
+  }
+  const delay = SYNC_RETRY_DELAYS[syncRetryCount];
+  syncRetryCount += 1;
+  setTimeout(() => {
+    if (navigator.onLine) {
+      syncToSupabase(false);
+    } else {
+      pendingBackgroundSync = true;
+      saveToLocalStorage();
+    }
+  }, delay);
 }
 
 function updateCachesWithLog(log) {
@@ -503,6 +1006,13 @@ async function loadQuestionBank() {
     progressText.textContent = '正在解析題庫...';
     progressFill.style.width = '50%';
     allQuestions = parseCSV(csvText);
+    refreshCoverageMatrix();
+    const hash = await computeQuestionBankHash(csvText);
+    setQuestionBankMeta({
+      version: 'data.csv',
+      hash,
+      count: allQuestions.length
+    });
     progressText.textContent = '正在儲存資料...';
     progressFill.style.width = '75%';
     saveToLocalStorage();
@@ -547,6 +1057,13 @@ async function reloadQuestions() {
       csvText = await response.text();
     }
     allQuestions = parseCSV(csvText);
+    refreshCoverageMatrix();
+    const hash = await computeQuestionBankHash(csvText);
+    setQuestionBankMeta({
+      version: 'data.csv',
+      hash,
+      count: allQuestions.length
+    });
     saveToLocalStorage();
     initListPage();
     showMessage('成功', `題庫已更新。\n目前題數 ${allQuestions.length} 題`);
@@ -652,6 +1169,19 @@ function sortSchools(list) {
   } catch (e) {
     return list.sort((a, b) => a.localeCompare(b, 'zh-Hant'));
   }
+}
+
+function sortYears(list) {
+  return list.sort((a, b) => {
+    const na = parseInt(a, 10);
+    const nb = parseInt(b, 10);
+    const aValid = !Number.isNaN(na);
+    const bValid = !Number.isNaN(nb);
+    if (aValid && bValid) return na - nb;
+    if (aValid && !bValid) return -1;
+    if (!aValid && bValid) return 1;
+    return String(a).localeCompare(String(b), 'zh-Hant');
+  });
 }
 
 function populateSelect(id, options) {
@@ -915,6 +1445,100 @@ function showStatsAnalysis() {
   showMessage('統計分析', message);
 }
 
+function showCoverageList() {
+  if (questionCoverageDirty) {
+    refreshCoverageMatrix();
+  }
+  renderCoverageTable();
+  const modal = document.getElementById('coverage-modal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function renderCoverageTable() {
+  const head = document.getElementById('coverage-table-head');
+  const body = document.getElementById('coverage-table-body');
+  const emptyHint = document.getElementById('coverage-empty');
+  const wrapper = document.querySelector('.coverage-table-wrapper');
+  if (!head || !body) return;
+
+  const data = questionCoverage || { years: [], schools: [], matrix: {} };
+  const { years = [], schools = [], matrix = {} } = data;
+  const hasData = years.length > 0 && schools.length > 0;
+
+  if (emptyHint) emptyHint.style.display = hasData ? 'none' : 'block';
+  if (wrapper) wrapper.style.display = hasData ? 'block' : 'none';
+
+  head.innerHTML = '';
+  body.innerHTML = '';
+  if (!hasData) return;
+
+  const headerRow = document.createElement('tr');
+  let headerHtml = '<th>學校 / 年份</th>';
+  years.forEach(year => {
+    headerHtml += `<th>${escapeHtml(year)}</th>`;
+  });
+  headerRow.innerHTML = headerHtml;
+  head.appendChild(headerRow);
+
+  schools.forEach(school => {
+    const row = document.createElement('tr');
+    let rowHtml = `<th class="row-school">${escapeHtml(school)}</th>`;
+    years.forEach(year => {
+      const hasQuestion = !!(matrix[year] && matrix[year][school]);
+      rowHtml += `<td>${hasQuestion ? '○' : ''}</td>`;
+    });
+    row.innerHTML = rowHtml;
+    body.appendChild(row);
+  });
+}
+
+function closeCoverageModal() {
+  const modal = document.getElementById('coverage-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function refreshCoverageMatrix() {
+  questionCoverage = buildCoverageMatrix(allQuestions);
+  questionCoverageDirty = false;
+}
+
+function buildCoverageMatrix(questions) {
+  const valid = (questions || []).filter(q => q && q.Year && q.School);
+  if (valid.length === 0) {
+    return { years: [], schools: [], matrix: {} };
+  }
+
+  const years = sortYears([...new Set(valid.map(q => q.Year))]);
+  const schools = sortSchools([...new Set(valid.map(q => q.School))]);
+  const matrix = {};
+
+  years.forEach(year => {
+    matrix[year] = {};
+    schools.forEach(school => {
+      matrix[year][school] = false;
+    });
+  });
+
+  valid.forEach(q => {
+    const year = q.Year;
+    const school = q.School;
+    if (!matrix[year]) matrix[year] = {};
+    matrix[year][school] = true;
+  });
+
+  return { years, schools, matrix };
+}
+
+function escapeHtml(str) {
+  const text = str == null ? '' : String(str);
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function getSelectedQuestions() {
   const checkboxes = document.querySelectorAll('.question-checkbox:checked');
   const selected = [];
@@ -1153,6 +1777,7 @@ function logMobileBrowseRating(value) {
 
   // 覆寫同日同題的瀏覽紀錄
   const idx = practiceLog.findIndex(l => l.Q_ID === qid && l.Date === today && l.Mode === 'Browse-Mobile');
+  stampLogForSync(log);
   if (idx >= 0) {
     practiceLog[idx] = log;
   } else {
@@ -1283,7 +1908,8 @@ function startPracticePage() {
     startTime: sessionStartTime,
     predictions: {...predictedDifficulties},
     questionTimes: {...questionTimes},
-    totalSeconds: 0
+    totalSeconds: 0,
+    updated_at: Date.now()
   };
   saveToLocalStorage();
   
@@ -1405,6 +2031,7 @@ function recordResult(result) {
     Mode: isBrowseMode ? 'Browse' : 'Practice'
   };
   
+  stampLogForSync(log);
   practiceLog.push(log);
   updateCachesWithLog(log);
   
@@ -1449,6 +2076,7 @@ function saveBrowseLog() {
   };
   
   const existingIndex = practiceLog.findIndex(l => l.Q_ID === qid && l.Date === today && l.Result === 'Browse');
+  stampLogForSync(log);
   if (existingIndex >= 0) {
     practiceLog[existingIndex] = log;
   } else {
@@ -1510,18 +2138,43 @@ function updateDifficultyStars(value) {
 function saveCurrentNote() {
   currentNote = document.getElementById('practice-notes').value;
   
-  // ?? practiceLog ??????
   const q = practiceQuestions[currentIndex];
   const qid = getQID(q);
   
   const logs = practiceLog.filter(log => log.Q_ID === qid);
   if (logs.length > 0) {
-    logs[logs.length - 1].Note = currentNote;
-    ensureStatusEntry(qid).lastNote = currentNote;
-    saveToLocalStorage();
-    showMessage('??', '?????');
+    const target = logs[logs.length - 1];
+    target.Note = currentNote;
+    target.client_updated_at = Date.now();
+    stampLogForSync(target);
   } else {
-    showMessage('??', '???????/??/?????????');
+    // 若尚無此題紀錄，新增一筆僅含筆記的紀錄
+    const now = new Date();
+    const log = {
+      Q_ID: qid,
+      Date: now.toISOString().split('T')[0],
+      TimeSeconds: 0,
+      PredictedDifficulty: predictedDifficulties[qid] || 0,
+      ActualDifficulty: 0,
+      Note: currentNote,
+      Result: 'NoteOnly',
+      Year: q.Year,
+      School: q.School,
+      StartAt: now.toISOString(),
+      EndAt: now.toISOString(),
+      Mode: 'Note'
+    };
+    stampLogForSync(log);
+    practiceLog.push(log);
+    updateCachesWithLog(log);
+  }
+
+  ensureStatusEntry(qid).lastNote = currentNote;
+  saveToLocalStorage();
+  showMessage('成功', '筆記已儲存');
+
+  if (enableBackgroundSync) {
+    scheduleBackgroundSync();
   }
 }
 
@@ -1539,7 +2192,8 @@ function saveForLater() {
     startTime: sessionStartTime,
     predictions: {...predictedDifficulties},
     questionTimes: {...questionTimes},
-    totalSeconds: sessionTotalSeconds + Math.floor((Date.now() - sessionStartTime) / 1000)
+    totalSeconds: sessionTotalSeconds + Math.floor((Date.now() - sessionStartTime) / 1000),
+    updated_at: Date.now()
   };
   saveToLocalStorage();
   
@@ -1548,6 +2202,10 @@ function saveForLater() {
     showPage('list');
     initListPage();
   });
+
+  if (enableBackgroundSync) {
+    scheduleBackgroundSync();
+  }
 }
 
 function endSession() {
@@ -1565,6 +2223,10 @@ function endSession() {
   // 顯示 Summary
   showPage('summary');
   renderSummary();
+
+  if (enableBackgroundSync) {
+    scheduleBackgroundSync();
+  }
 }
 
 
@@ -2243,6 +2905,7 @@ function importLogs() {
       data.practiceLog.forEach(log => {
         const key = `${log.Date}-${log.Q_ID}-${log.TimeSeconds}`;
         if (!existingKeys.has(key)) {
+          stampLogForSync(log);
           practiceLog.push(log);
           addedCount++;
         }

@@ -2,26 +2,51 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
-  <title>CSV 題庫圖片預覽</title>
+  <title>CSV 題庫檢視 / 連結健檢</title>
   <style>
     body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-                   sans-serif;
+      font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
       margin: 20px;
+      background: #f7f8fa;
+      color: #1a1a1a;
     }
-    h1 {
-      margin-bottom: 10px;
+    h1 { margin-bottom: 12px; }
+    #controls, #filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 12px;
+      align-items: center;
     }
-    #controls {
-      margin-bottom: 16px;
+    #filters label { font-size: 14px; }
+    input[type="text"] {
+      padding: 4px 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
     }
+    button {
+      padding: 6px 10px;
+      border: 1px solid #888;
+      background: linear-gradient(#fefefe, #e4e4e4);
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover { background: linear-gradient(#fff, #dcdcdc); }
+    #status { font-size: 13px; color: #555; }
+    #summary { font-weight: 700; }
     table {
       border-collapse: collapse;
       width: 100%;
       table-layout: fixed;
+      background: #fff;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+    #stats-table {
+      margin-top: 6px;
+      width: 100%;
     }
     th, td {
-      border: 1px solid #ccc;
+      border: 1px solid #dcdcdc;
       padding: 6px;
       text-align: left;
       vertical-align: top;
@@ -29,140 +54,551 @@
       word-break: break-all;
     }
     th {
-      background-color: #f5f5f5;
+      background: linear-gradient(#f6f6f6, #ececec);
+      cursor: pointer;
+      position: sticky;
+      top: 0;
+      z-index: 1;
     }
-    img {
-      max-width: 200px;
-      max-height: 200px;
+    th.sortable:hover { background: #e2e2e2; }
+    tr:nth-child(odd) td { background: #fafafa; }
+    img.preview {
+      max-width: 140px;
+      max-height: 140px;
       display: block;
       margin-top: 4px;
       object-fit: contain;
     }
+    .status-ok { color: #0a7f27; font-weight: 700; }
+    .status-missing { color: #c00000; font-weight: 700; }
+    .pill {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 10px;
+      font-size: 12px;
+      background: #eee;
+      color: #333;
+    }
   </style>
 </head>
 <body>
-  <h1>CSV 題庫圖片預覽</h1>
+  <h1>CSV 題庫檢視 / 連結健檢</h1>
 
   <div id="controls">
     <input type="file" id="file-input" accept=".csv" />
-    <button id="btn-load">載入 CSV</button>
+    <button id="btn-load">匯入 CSV</button>
+    <label style="margin-left: 12px;">
+      <input type="checkbox" id="toggle-check-links" checked /> 檢查圖片連結
+    </label>
+    <button id="btn-run-check" style="margin-left: 4px;">重新檢查</button>
+    <label style="margin-left: 12px;">圖片資料夾:
+      <input type="file" id="dir-images" webkitdirectory directory multiple />
+    </label>
+    <button id="btn-export-broken" style="margin-left: 8px;">匯出缺失清單</button>
+    <button id="btn-export-orphan" style="margin-left: 4px;">匯出多餘圖片</button>
     <span id="status"></span>
   </div>
+
+  <div id="filters">
+    <label>School:
+      <input type="text" id="filter-school" placeholder="關鍵字" />
+    </label>
+    <label>Year:
+      <input type="text" id="filter-year" placeholder="關鍵字" />
+    </label>
+    <label>檔案有缺:
+      <select id="filter-broken">
+        <option value="">全部</option>
+        <option value="yes" selected>只看缺檔</option>
+        <option value="no">只看正常</option>
+      </select>
+    </label>
+    <button id="btn-apply-filter">套用篩選</button>
+    <button id="btn-clear-filter">清除</button>
+  </div>
+
+  <div id="summary"></div>
+  <details id="orphan-panel" style="margin-bottom: 12px;" open>
+    <summary>多餘圖片列表</summary>
+    <div id="orphan-list" style="max-height: 240px; overflow: auto; padding: 6px; border: 1px solid #dcdcdc; background: #fff; margin-top: 6px; font-size: 13px;"></div>
+  </details>
+  <details id="stats-panel" style="margin-bottom: 12px;" open="false">
+    <summary>統計：Year / School 題數</summary>
+    <table id="stats-table">
+      <thead>
+        <tr>
+          <th class="sortable stats-sort" data-stats-sort="Year" style="width:90px;">Year</th>
+          <th class="sortable stats-sort" data-stats-sort="School">School</th>
+          <th class="sortable stats-sort" data-stats-sort="count" style="width:90px;">總題數</th>
+        </tr>
+      </thead>
+      <tbody id="stats-tbody"></tbody>
+    </table>
+  </details>
 
   <table id="result-table">
     <thead>
       <tr>
-        <th>#</th>
-        <th>School</th>
-        <th>Year</th>
-        <th>Question Type</th>
-        <th>Problem Image</th>
-        <th>Answer Image</th>
+        <th class="sortable" data-sort="index" style="width:50px;">#</th>
+        <th class="sortable" data-sort="School">School</th>
+        <th class="sortable" data-sort="Year">Year</th>
+        <th class="sortable" data-sort="Question Type">Question Type</th>
+        <th class="sortable" data-sort="Problem Image">Problem Image</th>
+        <th class="sortable" data-sort="Answer Image">Answer Image</th>
+        <th style="width:110px;">檢查結果</th>
       </tr>
     </thead>
     <tbody></tbody>
   </table>
 
-  <!-- PapaParse CDN，用來穩定解析 CSV -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-
   <script>
     const fileInput = document.getElementById("file-input");
     const btnLoad = document.getElementById("btn-load");
     const statusSpan = document.getElementById("status");
     const tbody = document.querySelector("#result-table tbody");
+    const summaryDiv = document.getElementById("summary");
+    const filterSchool = document.getElementById("filter-school");
+    const filterYear = document.getElementById("filter-year");
+    const filterBroken = document.getElementById("filter-broken");
+    const btnApplyFilter = document.getElementById("btn-apply-filter");
+    const btnClearFilter = document.getElementById("btn-clear-filter");
+    const toggleCheckLinks = document.getElementById("toggle-check-links");
+    const btnRunCheck = document.getElementById("btn-run-check");
+    const btnExportBroken = document.getElementById("btn-export-broken");
+    const btnExportOrphan = document.getElementById("btn-export-orphan");
+    const dirImages = document.getElementById("dir-images");
+    const manualList = document.getElementById("manual-list");
+    const btnUseManual = document.getElementById("btn-use-manual");
+    const orphanList = document.getElementById("orphan-list");
+    const statsTbody = document.getElementById("stats-tbody");
 
-    btnLoad.addEventListener("click", () => {
-      const file = fileInput.files && fileInput.files[0];
-      if (!file) {
-        alert("請先選擇 data.csv 檔案");
-        return;
-      }
-
-      statusSpan.textContent = " 讀取中…";
-
-      Papa.parse(file, {
-        header: true,          // 使用第一列當欄位名稱
-        skipEmptyLines: true,  // 跳過空行
-        complete: (results) => {
-          const rows = results.data;
-          statusSpan.textContent = ` 載入 ${rows.length} 筆資料`;
-          renderTable(rows);
-        },
-        error: (err) => {
-          console.error(err);
-          statusSpan.textContent = " 讀取錯誤";
-          alert("CSV 解析失敗，請檢查檔案格式");
+    let allRows = [];
+    let viewRows = [];
+    let sortKey = "index";
+    let sortAsc = true;
+    let imageFiles = [];
+    let orphanFiles = [];
+    let csvPathSet = new Set();
+    let csvBaseSet = new Set();
+    let statsRows = [];
+    let statsSortKey = "Year";
+    let statsSortAsc = true;
+    document.querySelectorAll(".stats-sort").forEach(th => {
+      th.addEventListener("click", () => {
+        const key = th.dataset.statsSort;
+        if (statsSortKey === key) {
+          statsSortAsc = !statsSortAsc;
+        } else {
+          statsSortKey = key;
+          statsSortAsc = true;
         }
+        renderStats();
       });
     });
 
+    btnLoad.addEventListener("click", handleCsvLoad);
+    fileInput.addEventListener("change", handleCsvLoad);
+
+    function handleCsvLoad() {
+      const file = fileInput.files && fileInput.files[0];
+      if (!file) {
+        alert("請選取 data.csv 檔案");
+        return;
+      }
+
+      statusSpan.textContent = " 解析中...";
+
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          const rows = results.data || [];
+          allRows = rows.map((r, i) => ({
+            ...r,
+            index: i + 1,
+            broken: false,
+            brokenReason: ""
+          }));
+          buildReferenceSets();
+          buildStats();
+          statusSpan.textContent = ` 讀取 ${allRows.length} 筆`;
+          applyFilters();
+          if (imageFiles.length) detectOrphans();
+          if (toggleCheckLinks.checked) {
+            checkLinks(allRows);
+          }
+        },
+        error: (err) => {
+          console.error(err);
+          statusSpan.textContent = " 解析錯誤";
+          alert("CSV 解析失敗，請檢查檔案格式");
+        }
+      });
+    }
+
+    function applyFilters() {
+      const s = filterSchool.value.trim().toLowerCase();
+      const y = filterYear.value.trim().toLowerCase();
+      const brokenOpt = filterBroken.value;
+
+      viewRows = allRows.filter(r => {
+        const school = (r["School"] || "").toLowerCase();
+        const year = (r["Year"] || "").toLowerCase();
+        const matchSchool = !s || school.includes(s);
+        const matchYear = !y || year.includes(y);
+        const matchBroken = !brokenOpt ||
+          (brokenOpt === "yes" && r.broken) ||
+          (brokenOpt === "no" && !r.broken);
+        return matchSchool && matchYear && matchBroken;
+      });
+      sortAndRender();
+      updateSummary();
+      renderStats();
+    }
+
+    function sortAndRender() {
+      viewRows.sort((a, b) => {
+        const va = (a[sortKey] || "").toString();
+        const vb = (b[sortKey] || "").toString();
+        if (va === vb) return 0;
+        return sortAsc ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
+      });
+      renderTable(viewRows);
+    }
+
     function renderTable(rows) {
       tbody.innerHTML = "";
-
       rows.forEach((row, index) => {
         const tr = document.createElement("tr");
 
-        // 編號
-        const tdIndex = document.createElement("td");
-        tdIndex.textContent = index + 1;
-        tr.appendChild(tdIndex);
+        appendCell(tr, index + 1);
+        appendCell(tr, row["School"] || "");
+        appendCell(tr, row["Year"] || "");
+        appendCell(tr, row["Question Type"] || "");
+        appendCellWithLink(tr, row["Problem Image"], "Problem");
+        appendCellWithLink(tr, row["Answer Image"], "Answer");
 
-        // School
-        const tdSchool = document.createElement("td");
-        tdSchool.textContent = row["School"] ?? "";
-        tr.appendChild(tdSchool);
-
-        // Year
-        const tdYear = document.createElement("td");
-        tdYear.textContent = row["Year"] ?? "";
-        tr.appendChild(tdYear);
-
-        // Question Type
-        const tdQType = document.createElement("td");
-        tdQType.textContent = row["Question Type"] ?? "";
-        tr.appendChild(tdQType);
-
-        // Problem Image
-        const tdProblemImg = document.createElement("td");
-        fillImageCell(tdProblemImg, row["Problem Image"], "Problem");
-        tr.appendChild(tdProblemImg);
-
-        // Answer Image
-        const tdAnswerImg = document.createElement("td");
-        fillImageCell(tdAnswerImg, row["Answer Image"], "Answer");
-        tr.appendChild(tdAnswerImg);
+        const tdStatus = document.createElement("td");
+        if (row.broken) {
+          tdStatus.innerHTML = `<span class="status-missing">缺檔</span><br><small>${row.brokenReason}</small>`;
+        } else {
+          tdStatus.innerHTML = `<span class="status-ok">OK</span>`;
+        }
+        tr.appendChild(tdStatus);
 
         tbody.appendChild(tr);
       });
     }
 
-    function fillImageCell(td, url, label) {
-      if (!url) {
-        td.textContent = "";
-        return;
-      }
+    function appendCell(tr, text) {
+      const td = document.createElement("td");
+      td.textContent = text;
+      tr.appendChild(td);
+    }
 
-      const trimmed = String(url).trim();
+    function appendCellWithLink(tr, url, label) {
+      const td = document.createElement("td");
+      const trimmed = (url || "").toString().trim();
       if (!trimmed) {
         td.textContent = "";
+        tr.appendChild(td);
         return;
       }
-
-      // 文字超連結
+      const resolvedUrl = resolveImageUrl(trimmed);
       const link = document.createElement("a");
-      link.href = trimmed;
+      link.href = resolvedUrl;
       link.textContent = trimmed;
       link.target = "_blank";
-
-      // 圖片預覽
-      const img = document.createElement("img");
-      img.src = trimmed;
-      img.alt = label + " image";
-
       td.appendChild(link);
-      td.appendChild(document.createElement("br"));
-      td.appendChild(img);
+
+      if (isImageLike(trimmed)) {
+        const img = document.createElement("img");
+        img.src = resolvedUrl;
+        img.alt = label + " image";
+        img.className = "preview";
+        td.appendChild(document.createElement("br"));
+        td.appendChild(img);
+      }
+      tr.appendChild(td);
+    }
+
+    function isImageLike(url) {
+      return /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(url);
+    }
+
+    async function checkLinks(rows) {
+      statusSpan.textContent = " 檢查連結中...";
+      const tasks = [];
+      const limit = 10;
+      let active = 0;
+      let idx = 0;
+
+      return new Promise(resolve => {
+        const next = () => {
+          if (idx >= rows.length && active === 0) {
+            statusSpan.textContent = " 檢查完成";
+            if (imageFiles.length && allRows.length) {
+              detectOrphans();
+            }
+            applyFilters();
+            resolve();
+            return;
+          }
+          while (active < limit && idx < rows.length) {
+            const row = rows[idx++];
+            active++;
+            checkRow(row).finally(() => {
+              active--;
+              next();
+            });
+          }
+        };
+        next();
+      });
+    }
+
+    async function checkRow(row) {
+      const problems = [];
+      const checks = [
+        { key: "Problem Image", label: "Problem" },
+        { key: "Answer Image", label: "Answer" }
+      ];
+      for (const c of checks) {
+        const url = (row[c.key] || "").toString().trim();
+        if (!url) continue;
+        const ok = await imageReachable(url);
+        if (!ok) problems.push(`${c.label} 缺檔`);
+      }
+      row.broken = problems.length > 0;
+      row.brokenReason = problems.join(" / ");
+      return row.broken;
+    }
+
+    function buildReferenceSets() {
+      csvPathSet = new Set();
+      csvBaseSet = new Set();
+      allRows.forEach(r => {
+        ["Problem Image", "Answer Image"].forEach(k => {
+          const url = (r[k] || "").toString().trim();
+          if (!url) return;
+          const normalized = normalizePath(url);
+          csvPathSet.add(normalized.full);
+          csvBaseSet.add(normalized.base);
+        });
+      });
+    }
+
+    function detectOrphans() {
+      orphanFiles = [];
+      if (!allRows.length || !imageFiles.length) return;
+      imageFiles.forEach(f => {
+        const rel = (f.webkitRelativePath || f.name);
+        const normalized = normalizePath(rel);
+        if (!csvPathSet.has(normalized.full) && !csvBaseSet.has(normalized.base)) {
+          orphanFiles.push({ path: rel });
+        }
+      });
+      renderOrphanList();
+    }
+
+    function buildStats() {
+      const map = new Map();
+      allRows.forEach(r => {
+        const year = (r["Year"] || "").trim();
+        const school = (r["School"] || "").trim();
+        const key = `${year}|||${school}`;
+        map.set(key, (map.get(key) || 0) + 1);
+      });
+      statsRows = Array.from(map.entries()).map(([k, count]) => {
+        const [Year, School] = k.split("|||");
+        return { Year, School, count };
+      });
+      renderStats();
+    }
+
+    function renderStats() {
+      if (!statsTbody) return;
+      const rows = [...statsRows];
+      rows.sort((a, b) => {
+        const va = a[statsSortKey] || "";
+        const vb = b[statsSortKey] || "";
+        if (va === vb) return 0;
+        return statsSortAsc ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
+      });
+      const frag = document.createDocumentFragment();
+      rows.forEach(r => {
+        const tr = document.createElement("tr");
+        appendCell(tr, r.Year);
+        appendCell(tr, r.School);
+        appendCell(tr, r.count);
+        frag.appendChild(tr);
+      });
+      statsTbody.innerHTML = "";
+      statsTbody.appendChild(frag);
+    }
+
+    function normalizePath(p) {
+      const trimmed = p.trim().replace(/\\/g, "/");
+      const noQuery = trimmed.split("?")[0].toLowerCase();
+      const base = noQuery.split("/").pop();
+      return { full: noQuery, base };
+    }
+
+    function renderOrphanList() {
+      if (!orphanList) return;
+      if (!orphanFiles.length) {
+        orphanList.textContent = "無多餘圖片";
+        return;
+      }
+      const frag = document.createDocumentFragment();
+      orphanFiles.forEach(o => {
+        const div = document.createElement("div");
+        const link = document.createElement("a");
+        link.href = resolveImageUrl(o.path);
+        link.textContent = o.path;
+        link.target = "_blank";
+        div.appendChild(link);
+        if (isImageLike(o.path)) {
+          const img = document.createElement("img");
+          img.src = resolveImageUrl(o.path);
+          img.alt = o.path;
+          img.className = "preview";
+          img.style.maxWidth = "120px";
+          img.style.maxHeight = "120px";
+          img.style.marginLeft = "8px";
+          img.style.verticalAlign = "middle";
+          div.appendChild(img);
+        }
+        frag.appendChild(div);
+      });
+      orphanList.innerHTML = "";
+      orphanList.appendChild(frag);
+    }
+    let imageCheckCache = new Map();
+    function imageReachable(url) {
+      if (imageCheckCache.has(url)) return imageCheckCache.get(url);
+      const resolved = resolveImageUrl(url);
+      const cacheBusted = appendCacheBust(resolved);
+      const p = new Promise(resolve => {
+        const img = new Image();
+        const timer = setTimeout(() => resolve(false), 8000);
+        img.onload = () => { clearTimeout(timer); resolve(true); };
+        img.onerror = () => { clearTimeout(timer); resolve(false); };
+        img.src = cacheBusted;
+      });
+      imageCheckCache.set(url, p);
+      return p;
+    }
+
+    function appendCacheBust(url) {
+      const sep = url.includes("?") ? "&" : "?";
+      return `${url}${sep}_cb=${Date.now()}`;
+    }
+
+    function resolveImageUrl(url) {
+      const trimmed = url.trim();
+      if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith("data:")) return trimmed;
+      if (trimmed.startsWith("./") || trimmed.startsWith("../") || trimmed.includes("/")) return trimmed;
+      return `images/${trimmed}`;
+    }
+
+    function updateSummary() {
+      const total = allRows.length;
+      const broken = allRows.filter(r => r.broken).length;
+      summaryDiv.textContent = `總筆數 ${total}，缺檔 ${broken}，多餘圖片 ${orphanFiles.length}，目前顯示 ${viewRows.length}`;
+    }
+
+    btnApplyFilter.addEventListener("click", applyFilters);
+    btnClearFilter.addEventListener("click", () => {
+      filterSchool.value = "";
+      filterYear.value = "";
+      filterBroken.value = "";
+      applyFilters();
+    });
+
+    document.querySelectorAll("th.sortable").forEach(th => {
+      th.addEventListener("click", () => {
+        const key = th.dataset.sort;
+        if (sortKey === key) {
+          sortAsc = !sortAsc;
+        } else {
+          sortKey = key;
+          sortAsc = true;
+        }
+        sortAndRender();
+      });
+    });
+
+    btnExportBroken.addEventListener("click", () => {
+      const brokenRows = allRows.filter(r => r.broken);
+      if (brokenRows.length === 0) {
+        alert("目前沒有缺檔紀錄");
+        return;
+      }
+      const lines = [
+        ["index", "School", "Year", "Question Type", "Problem Image", "Answer Image", "Reason"].join(",")
+      ];
+      brokenRows.forEach(r => {
+        lines.push([
+          r.index,
+          safeCsv(r["School"]),
+          safeCsv(r["Year"]),
+          safeCsv(r["Question Type"]),
+          safeCsv(r["Problem Image"]),
+          safeCsv(r["Answer Image"]),
+          safeCsv(r.brokenReason || "缺檔")
+        ].join(","));
+      });
+      const bom = "\uFEFF";
+      const blob = new Blob([bom + lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "broken-links.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    btnExportOrphan.addEventListener("click", () => {
+      if (!orphanFiles.length) {
+        alert("目前沒有多餘圖片");
+        return;
+      }
+      const lines = ["path"];
+      orphanFiles.forEach(o => lines.push(safeCsv(o.path)));
+      const bom = "\uFEFF";
+      const blob = new Blob([bom + lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "orphan-images.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    btnRunCheck.addEventListener("click", () => {
+      if (!allRows.length) {
+        alert("請先匯入 CSV");
+        return;
+      }
+      imageCheckCache = new Map(); // reset cache to re-check restored files
+      buildReferenceSets();
+      if (imageFiles.length) detectOrphans();
+      checkLinks(allRows);
+    });
+
+    dirImages.addEventListener("change", () => {
+      imageFiles = Array.from(dirImages.files || []);
+      if (allRows.length) {
+        detectOrphans();
+        updateSummary();
+      }
+    });
+
+    function safeCsv(text) {
+      const t = (text || "").toString().replace(/"/g, '""');
+      return `"${t}"`;
     }
   </script>
 </body>
