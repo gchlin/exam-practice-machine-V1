@@ -37,10 +37,105 @@ body {
   align-items: center;
   font-weight: bold;
   font-size: 13px;
+  gap: 8px;
+}
+
+.titlebar-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex-shrink: 1;
+}
+
+.titlebar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.titlebar-back-btn {
+  width: 22px;
+  height: 18px;
+  border: 1px outset #c0c0c0;
+  background: #c0c0c0;
+  color: #000;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.titlebar-back-btn:active {
+  border: 1px inset #808080;
 }
 
 .win98-titlebar-text {
   padding-left: 2px;
+  white-space: nowrap;
+}
+
+/* 麵包屑導航 */
+.breadcrumb {
+  font-size: 12px;
+  font-weight: normal;
+  opacity: 0.9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.breadcrumb a {
+  color: #fff;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.breadcrumb a:hover {
+  opacity: 0.8;
+}
+
+/* 標題列計時器 */
+.titlebar-timer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: normal;
+  background: rgba(255,255,255,0.15);
+  padding: 2px 6px;
+  border-radius: 2px;
+}
+
+.timer-text {
+  white-space: nowrap;
+}
+
+.timer-sep {
+  opacity: 0.6;
+  margin: 0 2px;
+}
+
+.timer-ctrl-btn {
+  width: 18px;
+  height: 16px;
+  border: 1px outset #c0c0c0;
+  background: #c0c0c0;
+  color: #000;
+  font-size: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.timer-ctrl-btn:active {
+  border: 1px inset #808080;
 }
 
 .win98-titlebar-buttons {
@@ -68,6 +163,131 @@ body {
   padding: 2px 4px;
   border-bottom: 1px solid #fff;
   font-size: 12px;
+}
+
+/* ==================== 帳號圖示按鈕 ==================== */
+.auth-icon-btn {
+  width: 24px;
+  height: 18px;
+  border: 1px outset #c0c0c0;
+  background: #c0c0c0;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  margin-right: 4px;
+  flex-shrink: 0;
+}
+
+.auth-icon-btn:active {
+  border: 1px inset #808080;
+}
+
+/* ==================== 帳號設定彈窗 ==================== */
+.auth-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.auth-modal-content {
+  background: #c0c0c0;
+  border: 2px outset #fff;
+  box-shadow: 4px 4px 0 #000;
+  min-width: 280px;
+  max-width: 90%;
+}
+
+.auth-modal-header {
+  background: linear-gradient(90deg, #000080 0%, #1084d0 100%);
+  color: #fff;
+  padding: 4px 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: bold;
+  font-size: 13px;
+}
+
+.auth-modal-close {
+  width: 18px;
+  height: 16px;
+  border: 1px outset #c0c0c0;
+  background: #c0c0c0;
+  font-size: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #000;
+}
+
+.auth-modal-body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.auth-status-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.auth-btn-row {
+  display: flex;
+  gap: 6px;
+}
+
+.auth-sync-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.auth-hint {
+  font-size: 11px;
+  color: #666;
+}
+
+/* ==================== 桌面版/手機版顯示控制 ==================== */
+.desktop-only {
+  display: block;
+}
+
+.mobile-only {
+  display: none;
+}
+
+/* 題目框旁的資訊列（手機版） */
+.practice-left-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.practice-info-inline {
+  display: none; /* 桌面版隱藏 */
+  font-size: 11px;
+  color: #666;
+  background: #ffffc0;
+  padding: 2px 6px;
+  border: 1px solid #ccc;
 }
 
 /* ==================== 內容區 - 固定高度 ==================== */
@@ -938,33 +1158,62 @@ body.compact-mode .win98-content {
   padding: 8px;
 }
 
+/* ==================== 懸浮導航按鈕 ==================== */
+.mobile-float-btn {
+  display: none; /* 預設隱藏，手機模式才顯示 */
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 80px;
+  background: rgba(0, 0, 0, 0.3);
+  color: #fff;
+  border: none;
+  font-size: 28px;
+  font-weight: bold;
+  cursor: pointer;
+  z-index: 998;
+  transition: background 0.2s;
+  touch-action: manipulation;
+}
+
+.mobile-float-btn:active {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.mobile-float-prev {
+  left: 0;
+  border-radius: 0 8px 8px 0;
+}
+
+.mobile-float-next {
+  right: 0;
+  border-radius: 8px 0 0 8px;
+}
+
 /* ==================== 手機專用固定操作列 ==================== */
 .mobile-action-bar {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  background: linear-gradient(to top, #c0c0c0 0%, #d0d0d0 100%);
-  border-top: 2px solid #fff;
-  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.2);
+  background: rgba(240, 240, 240, 0.95);
+  border-top: 1px solid #ccc;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
   padding: 8px;
   padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
   z-index: 999;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
-.mobile-quick-actions {
-  display: grid;
-  grid-template-columns: 1fr 1.5fr 1fr;
-  gap: 8px;
-}
-
-.mobile-main-actions {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
+/* 單行排列所有按鈕 */
+.mobile-single-row {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  align-items: stretch;
 }
 
 .mobile-difficulty {
@@ -977,53 +1226,78 @@ body.compact-mode .win98-content {
 }
 
 .mobile-btn {
-  border: 2px outset #fff;
-  background: #c0c0c0;
-  padding: 10px 8px;
-  font-size: 14px;
+  border: 2px solid #999;
+  background: transparent;
+  padding: 10px 12px;
+  font-size: 16px;
   font-weight: bold;
   cursor: pointer;
   font-family: inherit;
   min-height: 44px;
-  transition: all 0.1s;
+  min-width: 44px;
+  transition: all 0.15s;
   touch-action: manipulation;
+  border-radius: 4px;
 }
 
 .mobile-btn:active {
-  border: 2px inset #808080;
-  padding: 15px 9px 13px 11px;
-  transform: scale(0.98);
+  transform: scale(0.95);
 }
 
+/* 主按鈕 - 顯示解答 */
 .mobile-btn-primary {
-  background: #0000aa;
+  background: #3478f6;
   color: #fff;
-  font-size: 14px;
+  border-color: #3478f6;
+  flex: 1.5;
+  max-width: 140px;
 }
 
-.mobile-btn-secondary {
-  background: #c0c0c0;
-  font-size: 18px;
+.mobile-btn-primary:active {
+  background: #2563eb;
 }
 
-.mobile-btn-correct {
-  background: #00aa00;
-  color: #fff;
+/* 幽靈按鈕（外框樣式） */
+.mobile-btn-ghost {
+  background: transparent;
+  flex: 1;
+  max-width: 50px;
 }
 
-.mobile-btn-wrong {
-  background: #aa0000;
-  color: #fff;
+.mobile-btn-ghost.mobile-btn-correct {
+  color: #22c55e;
+  border-color: #22c55e;
 }
 
-.mobile-btn-skip {
-  background: #808080;
-  color: #fff;
+.mobile-btn-ghost.mobile-btn-correct:active {
+  background: rgba(34, 197, 94, 0.1);
 }
 
-.mobile-btn-difficulty {
-  background: #ffcc00;
-  color: #000;
+.mobile-btn-ghost.mobile-btn-wrong {
+  color: #ef4444;
+  border-color: #ef4444;
+}
+
+.mobile-btn-ghost.mobile-btn-wrong:active {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.mobile-btn-ghost.mobile-btn-skip {
+  color: #6b7280;
+  border-color: #6b7280;
+}
+
+.mobile-btn-ghost.mobile-btn-skip:active {
+  background: rgba(107, 114, 128, 0.1);
+}
+
+.mobile-btn-ghost.mobile-btn-difficulty {
+  color: #f59e0b;
+  border-color: #f59e0b;
+}
+
+.mobile-btn-ghost.mobile-btn-difficulty:active {
+  background: rgba(245, 158, 11, 0.1);
 }
 
 .mobile-stars {
@@ -1072,11 +1346,37 @@ body.mobile-mode .page {
 }
 
 body.mobile-mode #page-practice {
-  padding-bottom: 130px !important;
+  padding-bottom: 80px !important; /* 單行操作列更低 */
 }
 
 body.mobile-mode .practice-controls {
   display: none;
+}
+
+/* 手機模式顯示懸浮按鈕 */
+body.mobile-mode .mobile-float-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 手機模式：顯示/隱藏元素 */
+body.mobile-mode .desktop-only {
+  display: none !important;
+}
+
+body.mobile-mode .mobile-only {
+  display: block !important;
+}
+
+/* 手機模式：顯示題目框旁資訊列 */
+body.mobile-mode .practice-info-inline {
+  display: inline-block;
+}
+
+/* 手機模式：顯示標題列計時器 */
+body.mobile-mode #titlebar-timer {
+  display: flex;
 }
 
 /* ==================== 響應式 ==================== */
@@ -1104,22 +1404,37 @@ body.mobile-mode .practice-controls {
   body {
     padding: 5px;
   }
-  
-  /* 標題列 */
+
+  /* 標題列 - 緊湊一行 */
   .win98-titlebar {
-    flex-wrap: wrap;
-    padding: 6px;
-    gap: 4px;
+    flex-wrap: nowrap;
+    padding: 4px 8px;
+    gap: 8px;
   }
-  
+
   .win98-titlebar-text {
-    font-size: 13px;
+    font-size: 12px;
+    white-space: nowrap;
   }
-  
+
   .theme-switcher {
-    order: 3;
-    width: 100%;
-    justify-content: center;
+    order: 0;
+    width: auto;
+    flex-shrink: 0;
+  }
+
+  .theme-switcher .theme-btn {
+    padding: 2px 6px;
+    font-size: 10px;
+  }
+
+  .win98-titlebar-buttons {
+    display: none; /* 手機隱藏視窗按鈕 */
+  }
+
+  /* 手機隱藏登入區 */
+  .auth-box {
+    display: none;
   }
   
   /* 工具列 */

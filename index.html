@@ -157,31 +157,61 @@
     
     <!-- 標題列 -->
     <div class="win98-titlebar">
-      <div class="win98-titlebar-text">刷題機 V2.0</div>
-      <div class="theme-switcher">
-        <div class="theme-btn active" onclick="switchTheme('win98')" id="theme-win98">復古</div>
-        <div class="theme-btn" onclick="switchTheme('pastel')" id="theme-pastel">柔和</div>
+      <!-- 左側：返回 + 標題 + 麵包屑 -->
+      <div class="titlebar-left">
+        <button class="titlebar-back-btn" id="btn-titlebar-back" title="返回" style="display:none;">←</button>
+        <span class="win98-titlebar-text">刷題機 V2.0</span>
+        <span class="breadcrumb" id="breadcrumb"></span>
       </div>
-      <div class="win98-titlebar-buttons">
-        <div class="win98-titlebar-button">_</div>
-        <div class="win98-titlebar-button">□</div>
-        <div class="win98-titlebar-button">✕</div>
+
+      <!-- 右側：計時器 + 主題 + 帳號 -->
+      <div class="titlebar-right">
+        <div class="titlebar-timer" id="titlebar-timer" style="display:none;">
+          <span class="timer-text">總 <span id="titlebar-timer-total">00:00</span></span>
+          <span class="timer-sep">|</span>
+          <span class="timer-text">本題 <span id="titlebar-timer-single">00:00</span></span>
+          <button class="timer-ctrl-btn" id="btn-titlebar-timer-toggle" title="開始/暫停">▶</button>
+          <button class="timer-ctrl-btn" id="btn-titlebar-timer-reset" title="重設">↻</button>
+        </div>
+        <div class="theme-switcher">
+          <div class="theme-btn active" onclick="switchTheme('win98')" id="theme-win98">復古</div>
+          <div class="theme-btn" onclick="switchTheme('pastel')" id="theme-pastel">柔和</div>
+        </div>
+        <button class="auth-icon-btn" id="btn-open-auth" title="帳號設定">👤</button>
+        <div class="win98-titlebar-buttons">
+          <div class="win98-titlebar-button">_</div>
+          <div class="win98-titlebar-button">□</div>
+          <div class="win98-titlebar-button">✕</div>
+        </div>
       </div>
     </div>
 
-    <!-- 登入/註冊 -->
-    <div class="auth-box">
-      <input id="auth-email" type="email" placeholder="Email" class="win98-input">
-      <input id="auth-password" type="password" placeholder="Password" class="win98-input">
-      <button id="btn-signup" class="win98-button small">註冊</button>
-      <button id="btn-signin" class="win98-button small">登入</button>
-      <button id="btn-signout" class="win98-button small" style="display:none;">登出</button>
-      <span id="auth-status" class="auth-status">未登入</span>
-      <label class="small" style="display:flex; align-items:center; gap:4px; margin-left:8px;">
-        <input type="checkbox" id="toggle-bg-sync" style="margin:0;">
-        <span>啟用背景同步</span>
-      </label>
-      <span class="small" style="color:#666;">（換裝置前請按 ☁️ 同步）</span>
+    <!-- 登入/註冊彈窗 -->
+    <div class="auth-modal" id="auth-modal" style="display:none;">
+      <div class="auth-modal-content">
+        <div class="auth-modal-header">
+          <span>帳號設定</span>
+          <button class="auth-modal-close" id="btn-close-auth">✕</button>
+        </div>
+        <div class="auth-modal-body">
+          <div class="auth-status-row">
+            <span>狀態：</span>
+            <span id="auth-status" class="auth-status">未登入</span>
+          </div>
+          <input id="auth-email" type="email" placeholder="Email" class="win98-input">
+          <input id="auth-password" type="password" placeholder="Password" class="win98-input">
+          <div class="auth-btn-row">
+            <button id="btn-signup" class="win98-button small">註冊</button>
+            <button id="btn-signin" class="win98-button small">登入</button>
+            <button id="btn-signout" class="win98-button small" style="display:none;">登出</button>
+          </div>
+          <label class="auth-sync-label">
+            <input type="checkbox" id="toggle-bg-sync">
+            <span>啟用背景同步</span>
+          </label>
+          <div class="auth-hint">換裝置前請按 ☁️ 同步</div>
+        </div>
+      </div>
     </div>
 
     <!-- 主要內容 -->
@@ -466,20 +496,22 @@
 
       <!-- ========== 頁面 3: 正式刷題 ========== -->
       <div id="page-practice" class="page">
-        <div class="section-title">正式刷題</div>
-        <div class="mt-4">
-          <button id="btn-practice-back" class="win98-button small">回題庫列表</button>
+        <!-- 桌面版：保留原本按鈕（手機版隱藏） -->
+        <div class="desktop-only">
+          <div class="section-title">正式刷題</div>
+          <div class="mt-4">
+            <button id="btn-practice-back" class="win98-button small">回題庫列表</button>
+          </div>
         </div>
 
-        <!-- 題目資訊 -->
-        <div class="practice-header">
+        <!-- 桌面版：原本的計時器（手機版隱藏，移到標題列） -->
+        <div class="practice-header desktop-only">
           <div class="practice-info highlight">
-            第 <span id="current-num">1</span> / <span id="total-num">1</span> 題 | 
-            Q_ID: <span id="current-qid">-</span> | 
+            第 <span id="current-num">1</span> / <span id="total-num">1</span> 題 |
+            Q_ID: <span id="current-qid">-</span> |
             <span id="current-meta">-</span>
           </div>
-          
-          <!-- 雙計時器 -->
+
           <div class="timer-group">
             <div class="timer-item">
               <span class="label">總時間:</span>
@@ -498,7 +530,14 @@
         <div class="practice-layout">
           <!-- 左側：題目圖片 -->
           <div class="practice-left">
-            <div class="small mb-4">題目圖片（點擊放大）：</div>
+            <div class="practice-left-header">
+              <span class="small">題目圖片（點擊放大）</span>
+              <span class="practice-info-inline" id="practice-info-inline">
+                第 <span id="current-num-mobile">1</span>/<span id="total-num-mobile">1</span> 題 |
+                <span id="current-qid-mobile">-</span> |
+                <span id="current-meta-mobile">-</span>
+              </span>
+            </div>
             <div class="image-frame">
               <img id="practice-problem-img" class="problem-image" alt="題目圖片" onclick="enlargeImage(this.src)">
             </div>
@@ -563,20 +602,18 @@
         </div>
 
         <!-- 手機專用固定操作列 (2層精簡版) -->
-        <div class="mobile-action-bar" id="mobile-action-bar" style="display: none;">
-          <!-- 第一層：導航 + 顯示解答 -->
-          <div class="mobile-quick-actions">
-            <button class="mobile-btn mobile-btn-secondary" id="mobile-prev">←</button>
-            <button class="mobile-btn mobile-btn-primary" id="mobile-toggle-answer">顯示解答</button>
-            <button class="mobile-btn mobile-btn-secondary" id="mobile-next">→</button>
-          </div>
+        <!-- 懸浮導航按鈕 -->
+        <button class="mobile-float-btn mobile-float-prev" id="mobile-prev">‹</button>
+        <button class="mobile-float-btn mobile-float-next" id="mobile-next">›</button>
 
-          <!-- 第二層：作答結果 + 難度按鈕 -->
-          <div class="mobile-main-actions">
-            <button class="mobile-btn mobile-btn-correct" id="mobile-correct">✓</button>
-            <button class="mobile-btn mobile-btn-wrong" id="mobile-wrong">✗</button>
-            <button class="mobile-btn mobile-btn-skip" id="mobile-skip">⊘</button>
-            <button class="mobile-btn mobile-btn-difficulty" id="mobile-difficulty-btn">★</button>
+        <!-- 底部操作列 (單層) -->
+        <div class="mobile-action-bar" id="mobile-action-bar" style="display: none;">
+          <div class="mobile-single-row">
+            <button class="mobile-btn mobile-btn-ghost mobile-btn-correct" id="mobile-correct">✓</button>
+            <button class="mobile-btn mobile-btn-ghost mobile-btn-wrong" id="mobile-wrong">✗</button>
+            <button class="mobile-btn mobile-btn-ghost mobile-btn-skip" id="mobile-skip">⊘</button>
+            <button class="mobile-btn mobile-btn-primary" id="mobile-toggle-answer">顯示解答</button>
+            <button class="mobile-btn mobile-btn-ghost mobile-btn-difficulty" id="mobile-difficulty-btn">★</button>
           </div>
 
           <!-- 難度評分彈窗 (隱藏) -->

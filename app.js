@@ -145,6 +145,21 @@ function bindEvents() {
   
   // 雲端同步
   document.getElementById('btn-sync-cloud').addEventListener('click', () => syncToSupabase(true));
+
+  // 帳號設定彈窗
+  const btnOpenAuth = document.getElementById('btn-open-auth');
+  const btnCloseAuth = document.getElementById('btn-close-auth');
+  const authModal = document.getElementById('auth-modal');
+  if (btnOpenAuth) btnOpenAuth.addEventListener('click', () => {
+    if (authModal) authModal.style.display = 'flex';
+  });
+  if (btnCloseAuth) btnCloseAuth.addEventListener('click', () => {
+    if (authModal) authModal.style.display = 'none';
+  });
+  // 點擊背景關閉彈窗
+  if (authModal) authModal.addEventListener('click', (e) => {
+    if (e.target === authModal) authModal.style.display = 'none';
+  });
   
   // 重新載入題庫
   document.getElementById('btn-reload-questions').addEventListener('click', reloadQuestions);
@@ -170,6 +185,19 @@ function bindEvents() {
     returnToListFromPractice();
   });
   
+  // 標題列返回按鈕
+  const btnTitlebarBack = document.getElementById('btn-titlebar-back');
+  if (btnTitlebarBack) btnTitlebarBack.addEventListener('click', () => {
+    isBrowseMode = false;
+    returnToListFromPractice();
+  });
+
+  // 標題列計時器按鈕
+  const btnTitlebarTimerToggle = document.getElementById('btn-titlebar-timer-toggle');
+  const btnTitlebarTimerReset = document.getElementById('btn-titlebar-timer-reset');
+  if (btnTitlebarTimerToggle) btnTitlebarTimerToggle.addEventListener('click', toggleTimer);
+  if (btnTitlebarTimerReset) btnTitlebarTimerReset.addEventListener('click', resetTimer);
+
   // 練習頁面
   document.getElementById('btn-timer-toggle').addEventListener('click', toggleTimer);
   document.getElementById('btn-timer-reset').addEventListener('click', resetTimer);
@@ -469,15 +497,21 @@ function bindMobileEvents() {
 
 function updateMobileBarVisibility() {
   const mobileBar = document.getElementById('mobile-action-bar');
-  if (!mobileBar) return;
+  const floatPrev = document.querySelector('.mobile-float-prev');
+  const floatNext = document.querySelector('.mobile-float-next');
 
   const isMobileMode = document.body.classList.contains('mobile-mode');
   const isPracticePage = currentPage === 'practice';
+  const shouldShow = isMobileMode && isPracticePage;
 
-  if (isMobileMode && isPracticePage) {
-    mobileBar.style.display = 'flex';
-  } else {
-    mobileBar.style.display = 'none';
+  if (mobileBar) {
+    mobileBar.style.display = shouldShow ? 'flex' : 'none';
+  }
+  if (floatPrev) {
+    floatPrev.style.display = shouldShow ? 'flex' : 'none';
+  }
+  if (floatNext) {
+    floatNext.style.display = shouldShow ? 'flex' : 'none';
   }
 }
 
@@ -1957,11 +1991,21 @@ function displayQuestion(index) {
   const q = practiceQuestions[index];
   const qid = getQID(q);
   
-  // 更新標題資訊
+  // 更新標題資訊（桌面版）
   document.getElementById('current-num').textContent = index + 1;
   document.getElementById('total-num').textContent = practiceQuestions.length;
   document.getElementById('current-qid').textContent = qid;
   document.getElementById('current-meta').textContent = `${q.Year || '-'} ${q.School || '-'} [${q.Chapter || '-'}]`;
+
+  // 更新標題資訊（手機版 - 題目框旁）
+  const currentNumMobile = document.getElementById('current-num-mobile');
+  const totalNumMobile = document.getElementById('total-num-mobile');
+  const currentQidMobile = document.getElementById('current-qid-mobile');
+  const currentMetaMobile = document.getElementById('current-meta-mobile');
+  if (currentNumMobile) currentNumMobile.textContent = index + 1;
+  if (totalNumMobile) totalNumMobile.textContent = practiceQuestions.length;
+  if (currentQidMobile) currentQidMobile.textContent = qid;
+  if (currentMetaMobile) currentMetaMobile.textContent = `${q.Year || '-'} [${q.Chapter || '-'}]`;
   
   // 顯示題目圖片
   const problemImg = document.getElementById('practice-problem-img');
@@ -2561,13 +2605,16 @@ function showDayDetail(date) {
 
 function toggleTimer() {
   const btn = document.getElementById('btn-timer-toggle');
-  
+  const titlebarBtn = document.getElementById('btn-titlebar-timer-toggle');
+
   if (timerInterval) {
     stopTimer();
-    btn.textContent = '開始';
+    if (btn) btn.textContent = '開始';
+    if (titlebarBtn) titlebarBtn.textContent = '▶';
   } else {
     startTimer();
-    btn.textContent = '暫停';
+    if (btn) btn.textContent = '暫停';
+    if (titlebarBtn) titlebarBtn.textContent = '⏸';
   }
 }
 
@@ -2614,13 +2661,23 @@ function resetTimer() {
   updateTotalTimerDisplay(0);
   updateSingleTimerDisplay();
   document.getElementById('btn-timer-toggle').textContent = '開始';
+  // 更新標題列計時器按鈕
+  const titlebarToggle = document.getElementById('btn-titlebar-timer-toggle');
+  if (titlebarToggle) titlebarToggle.textContent = '▶';
 }
 
 function updateTotalTimerDisplay(seconds) {
   const minutes = Math.floor(seconds / 60);
   const secs = seconds % 60;
-  document.getElementById('timer-total').textContent = 
-    `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  const timeStr = `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+
+  // 更新桌面版計時器
+  const timerTotal = document.getElementById('timer-total');
+  if (timerTotal) timerTotal.textContent = timeStr;
+
+  // 更新標題列計時器
+  const titlebarTotal = document.getElementById('titlebar-timer-total');
+  if (titlebarTotal) titlebarTotal.textContent = timeStr;
 }
 
 function updateSingleTimerDisplay(seconds = null) {
@@ -2628,11 +2685,18 @@ function updateSingleTimerDisplay(seconds = null) {
     const qid = getQID(practiceQuestions[currentIndex]);
     seconds = questionTimes[qid] || 0;
   }
-  
+
   const minutes = Math.floor(seconds / 60);
   const secs = seconds % 60;
-  document.getElementById('timer-single').textContent = 
-    `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  const timeStr = `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+
+  // 更新桌面版計時器
+  const timerSingle = document.getElementById('timer-single');
+  if (timerSingle) timerSingle.textContent = timeStr;
+
+  // 更新標題列計時器
+  const titlebarSingle = document.getElementById('titlebar-timer-single');
+  if (titlebarSingle) titlebarSingle.textContent = timeStr;
 }
 
 // ==================== 未完成會話 ====================
@@ -2695,6 +2759,53 @@ function showPage(pageName) {
   if (typeof updateMobileBarVisibility === 'function') {
     updateMobileBarVisibility();
   }
+
+  // 更新標題列（麵包屑、返回按鈕、計時器）
+  updateTitlebar(pageName);
+}
+
+// 更新標題列元素
+function updateTitlebar(pageName) {
+  const backBtn = document.getElementById('btn-titlebar-back');
+  const breadcrumb = document.getElementById('breadcrumb');
+  const titlebarTimer = document.getElementById('titlebar-timer');
+
+  // 頁面名稱對應
+  const pageNames = {
+    'load': '載入題庫',
+    'list': '題庫列表',
+    'predict': '預測難度',
+    'practice': '正式刷題',
+    'log': '練習紀錄',
+    'summary': '練習總結'
+  };
+
+  // 返回按鈕：非首頁顯示
+  const showBack = pageName !== 'load' && pageName !== 'list';
+  if (backBtn) {
+    backBtn.style.display = showBack ? 'flex' : 'none';
+  }
+
+  // 麵包屑導航
+  if (breadcrumb) {
+    if (pageName === 'load' || pageName === 'list') {
+      breadcrumb.innerHTML = '';
+    } else {
+      const currentName = pageNames[pageName] || pageName;
+      breadcrumb.innerHTML = `/ <a onclick="goBackToList()">${pageNames['list']}</a> > ${currentName}`;
+    }
+  }
+
+  // 計時器：僅練習頁顯示
+  if (titlebarTimer) {
+    titlebarTimer.style.display = (pageName === 'practice') ? 'flex' : 'none';
+  }
+}
+
+// 返回題庫列表
+function goBackToList() {
+  isBrowseMode = false;
+  returnToListFromPractice();
 }
 
 function getQID(question) {
