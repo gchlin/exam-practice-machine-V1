@@ -836,8 +836,9 @@ body.compact-mode .motivational-quote {
 
 body.compact-mode .top-buttons {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 6px;
+  justify-items: stretch;
 }
 
 body.compact-mode .col-school,
@@ -1092,11 +1093,12 @@ body.mobile-mode .practice-controls {
   }
   
   .top-buttons {
-    flex-direction: column;
-    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 6px;
+    width: 100%;
   }
-  
+
   .top-buttons button {
     width: 100%;
   }

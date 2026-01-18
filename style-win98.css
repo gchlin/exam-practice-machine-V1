@@ -157,6 +157,8 @@ body {
 .top-buttons {
   display: flex;
   gap: 4px;
+  flex-wrap: wrap;
+  justify-content: flex-start;
 }
 
 /* ==================== 表格容器 - 可滾動 ==================== */
@@ -917,8 +919,9 @@ body.compact-mode .motivational-quote {
 
 body.compact-mode .top-buttons {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 4px;
+  justify-items: stretch;
 }
 
 body.compact-mode .col-school,
@@ -1171,11 +1174,12 @@ body.mobile-mode .practice-controls {
   }
   
   .top-buttons {
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 6px;
     width: 100%;
-    gap: 4px;
   }
-  
+
   .top-buttons button {
     width: 100%;
   }
