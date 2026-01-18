@@ -109,10 +109,6 @@ function bindEvents() {
   // 篩選
   document.getElementById('btn-apply-filter').addEventListener('click', applyFilters);
   document.getElementById('btn-reset-filter').addEventListener('click', resetFilters);
-  const btnToggleAdvanced = document.getElementById('btn-toggle-advanced');
-  if (btnToggleAdvanced) {
-    btnToggleAdvanced.addEventListener('click', toggleAdvancedFilters);
-  }
   
   // 全選
   document.getElementById('chk-all').addEventListener('change', toggleSelectAll);
@@ -122,14 +118,9 @@ function bindEvents() {
   if (randomModeSelect) randomModeSelect.addEventListener('change', updateRandomOptions);
   
   // 隨機3題
-  document.getElementById('btn-random-3').addEventListener('click', startRandom3);
-  
-  // 開始練習選中題目
   document.getElementById('btn-start-selected').addEventListener('click', startSelectedPractice);
-  // 瀏覽模式
-  document.getElementById('btn-start-browse').addEventListener('click', startBrowseMode);
-  // 手機瀏覽模式
-  document.getElementById('btn-start-mobile-browse').addEventListener('click', startMobileBrowseMode);
+  const btnMobileMainPractice = document.getElementById('btn-mobile-main-practice');
+  if (btnMobileMainPractice) btnMobileMainPractice.addEventListener('click', handleMobileMainPractice);
   // 檢視練習紀錄
   document.getElementById('btn-view-log').addEventListener('click', () => {
     renderLogPage();
@@ -1295,18 +1286,6 @@ function applyFilters() {
   renderQuestionList();
 }
 
-function toggleAdvancedFilters() {
-  const panel = document.getElementById('advanced-filters');
-  const btn = document.getElementById('btn-toggle-advanced');
-  if (!panel) return;
-  const shouldShow = panel.style.display === 'none' || !panel.style.display;
-  panel.style.display = shouldShow ? '' : 'none';
-  if (btn) {
-    btn.textContent = shouldShow ? '基本篩選' : '進階篩選';
-  }
-}
-
-
 function resetFilters() {
   document.getElementById('filter-year').value = '';
   document.getElementById('filter-school').value = '';
@@ -1317,10 +1296,6 @@ function resetFilters() {
   document.getElementById('filter-lang').value = '';
   document.getElementById('filter-rating').value = '';
   document.getElementById('filter-search').value = '';
-  const adv = document.getElementById('advanced-filters');
-  if (adv) adv.style.display = 'none';
-  const btn = document.getElementById('btn-toggle-advanced');
-  if (btn) btn.textContent = '進階篩選';
   
   applyFilters();
 }
@@ -1689,6 +1664,22 @@ function startPracticeWithQuestions(questions) {
     // 進入預測頁面
     showPage('predict');
     renderPredictPage();
+  }
+}
+
+function getSelectedMobilePracticeMode() {
+  const radio = document.querySelector('input[name="mobile-practice-mode"]:checked');
+  return radio ? radio.value : 'new';
+}
+
+function handleMobileMainPractice() {
+  const mode = getSelectedMobilePracticeMode();
+  if (mode === 'browse') {
+    startBrowseMode();
+  } else if (mode === 'mobile') {
+    startMobileBrowseMode();
+  } else {
+    startRandom3();
   }
 }
 

@@ -1571,3 +1571,125 @@ body.mobile-mode .practice-controls {
   max-height: 70vh;
   object-fit: contain;
 }
+
+/* Mobile hierarchy stack */
+.mobile-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.mobile-main-action .mobile-main-button {
+  width: 100%;
+  font-size: 16px;
+}
+
+.mobile-mode-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.mobile-mode-selector .mode-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.mobile-mode-selector .mode-option input {
+  transform: scale(1.1);
+}
+
+.mobile-mode-selector .mobile-secondary-button {
+  margin-left: auto;
+  min-width: 180px;
+}
+
+.mobile-layout .win98-button {
+  font-size: 14px;
+}
+
+.mobile-filter-panel,
+.mobile-tools-panel {
+  border: 1px solid #c8c8c8;
+  border-radius: 8px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.mobile-filter-panel summary,
+.mobile-tools-panel summary {
+  cursor: pointer;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  padding: 10px 14px;
+  gap: 6px;
+  border-bottom: 1px solid #e0e0e0;
+  background: #fdfdfd;
+  user-select: none;
+}
+
+.mobile-filter-panel summary::marker,
+.mobile-tools-panel summary::marker {
+  display: none;
+}
+
+.filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  padding: 10px 14px;
+}
+
+.filter-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.filter-actions,
+.mobile-tools-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+  padding: 10px 14px 12px;
+}
+
+.filter-actions {
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+}
+
+.mobile-tools-grid button {
+  width: 100%;
+}
+
+.mobile-bottom-links {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.display-options {
+  margin-top: 8px;
+}
+
+@media (max-width: 900px) {
+  .top-info-bar {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .mobile-layout {
+    gap: 6px;
+  }
+  .filter-grid {
+    gap: 6px;
+  }
+  .mobile-bottom-links {
+    gap: 6px;
+  }
+}

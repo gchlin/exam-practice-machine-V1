@@ -252,120 +252,120 @@
               <div class="small" id="month-stats-text">本月：0天 / 0題 / 0分鐘</div>
               <div class="motivational-quote">"持之以恆，必有所成"</div>
             </div>
-            <!-- 功能按鈕 -->
-            <div class="top-buttons">
+          </div>
+        </div>
+
+        <div class="mobile-layout">
+          <div class="mobile-main-action">
+            <button id="btn-mobile-main-practice" class="win98-button mobile-main-button">開始練習</button>
+          </div>
+          <div class="mobile-mode-selector">
+            <span class="label">練習模式：</span>
+            <label class="mode-option">
+              <input type="radio" name="mobile-practice-mode" value="new" checked>
+              新題
+            </label>
+            <label class="mode-option">
+              <input type="radio" name="mobile-practice-mode" value="browse">
+              瀏覽
+            </label>
+            <label class="mode-option">
+              <input type="radio" name="mobile-practice-mode" value="mobile">
+              觸控瀏覽
+            </label>
+            <button id="btn-start-selected" class="win98-button small mobile-secondary-button">開始練習勾選題目</button>
+          </div>
+
+          <details class="mobile-filter-panel" open>
+            <summary>▶ 篩選條件</summary>
+            <div class="filter-grid">
+              <label class="small">
+                章節
+                <select id="filter-chapter" class="win98-input">
+                  <option value="">全部</option>
+                </select>
+              </label>
+              <label class="small">
+                作答狀態
+                <select id="filter-status" class="win98-input">
+                  <option value="">全部</option>
+                  <option value="last-correct">上次對</option>
+                  <option value="last-wrong">上次錯</option>
+                  <option value="never">沒做過</option>
+                </select>
+              </label>
+              <label class="small">
+                年份
+                <select id="filter-year" class="win98-input">
+                  <option value="">全部</option>
+                </select>
+              </label>
+              <label class="small">
+                學校
+                <select id="filter-school" class="win98-input">
+                  <option value="">全部</option>
+                </select>
+              </label>
+              <label class="small">
+                招考
+                <select id="filter-recruitment" class="win98-input">
+                  <option value="">全部</option>
+                  <option value="公考">公考</option>
+                  <option value="校考">校考</option>
+                </select>
+              </label>
+              <label class="small">
+                題型
+                <select id="filter-type" class="win98-input">
+                  <option value="">全部</option>
+                </select>
+              </label>
+              <label class="small">
+                語言
+                <select id="filter-lang" class="win98-input">
+                  <option value="">全部</option>
+                  <option value="zh">中文</option>
+                  <option value="en">英文</option>
+                </select>
+              </label>
+              <label class="small">
+                難度
+                <select id="filter-rating" class="win98-input">
+                  <option value="">全部</option>
+                  <option value="1">1 ★</option>
+                  <option value="2">2 ★</option>
+                  <option value="3">3 ★</option>
+                  <option value="4">4 ★</option>
+                  <option value="5">5 ★</option>
+                </select>
+              </label>
+              <label class="small">
+                搜尋
+                <input type="text" id="filter-search" class="win98-input" placeholder="題目/關鍵字/筆記關鍵字">
+              </label>
+            </div>
+            <div class="filter-actions">
+              <button id="btn-apply-filter" class="win98-button small">套用篩選</button>
+              <button id="btn-reset-filter" class="win98-button small">重設</button>
+            </div>
+          </details>
+
+          <details class="mobile-tools-panel">
+            <summary>▶ 工具</summary>
+            <div class="mobile-tools-grid">
               <button id="btn-sync-cloud" class="win98-button small" title="雲端同步（跨裝置）">☁️ 同步</button>
               <button id="btn-reload-questions" class="win98-button small" title="強制重新下載題庫（避免快取）">🔄 更新題庫</button>
               <button id="btn-export-logs" class="win98-button small" title="匯出答題記錄">📤 匯出</button>
               <button id="btn-import-logs" class="win98-button small" title="匯入答題記錄">📥 匯入</button>
-              <button id="btn-show-stats" class="win98-button small">統計分析</button>
-              <button id="btn-show-coverage" class="win98-button small">收錄題目列表</button>
+              <button id="btn-export-pdf" class="win98-button small">匯出 PDF</button>
             </div>
-          </div>
-        </div>
+          </details>
 
-        <!-- 工具列 -->
-        <div class="toolbar">
-          <!-- 主篩選 -->
-          <div class="toolbar-group">
-            <span class="label">主要篩選：</span>
-            <label class="small">
-              章節
-              <select id="filter-chapter" class="win98-input">
-                <option value="">全部</option>
-              </select>
-            </label>
-            <label class="small">
-              作答狀態
-              <select id="filter-status" class="win98-input">
-                <option value="">全部</option>
-                <option value="last-correct">上次對</option>
-                <option value="last-wrong">上次錯</option>
-                <option value="never">沒做過</option>
-              </select>
-            </label>
+          <div class="mobile-bottom-links">
+            <button id="btn-show-stats" class="win98-button small">統計分析</button>
+            <button id="btn-show-coverage" class="win98-button small">收錄題目列表</button>
+            <button id="btn-view-log" class="win98-button small">查看練習紀錄</button>
           </div>
-
-          <div class="toolbar-group">
-            <button id="btn-apply-filter" class="win98-button">套用篩選</button>
-            <button id="btn-reset-filter" class="win98-button">重設</button>
-            <button id="btn-toggle-advanced" class="win98-button">進階篩選</button>
-            <button id="btn-export-pdf" class="win98-button">匯出 PDF</button>
-          </div>
-        </div>
-
-        <div class="toolbar" id="advanced-filters" style="display: none;">
-          <div class="toolbar-group">
-            <span class="label">進階：</span>
-            <label class="small">
-              年份
-              <select id="filter-year" class="win98-input">
-                <option value="">全部</option>
-              </select>
-            </label>
-            <label class="small">
-              學校
-              <select id="filter-school" class="win98-input">
-                <option value="">全部</option>
-              </select>
-            </label>
-            <label class="small">
-              招考
-              <select id="filter-recruitment" class="win98-input">
-                <option value="">全部</option>
-                <option value="公考">公考</option>
-                <option value="校考">校考</option>
-              </select>
-            </label>
-          </div>
-
-          <div class="toolbar-group">
-            <label class="small">
-              題型
-              <select id="filter-type" class="win98-input">
-                <option value="">全部</option>
-              </select>
-            </label>
-            <label class="small">
-              語言
-              <select id="filter-lang" class="win98-input">
-                <option value="">全部</option>
-                <option value="zh">中文</option>
-                <option value="en">英文</option>
-              </select>
-            </label>
-            <label class="small">
-              難度
-              <select id="filter-rating" class="win98-input">
-                <option value="">全部</option>
-                <option value="1">1 ★</option>
-                <option value="2">2 ★</option>
-                <option value="3">3 ★</option>
-                <option value="4">4 ★</option>
-                <option value="5">5 ★</option>
-              </select>
-            </label>
-          </div>
-
-          <div class="toolbar-group">
-            <label class="small">
-              搜尋題目／文字／筆記
-              <input type="text" id="filter-search" class="win98-input" placeholder="題目/關鍵字/筆記關鍵字">
-            </label>
-          </div>
-        </div>
-
-        <!-- 練習模式 -->
-        <div class="toolbar mt-4">
-          <div class="toolbar-group">
-            <span class="label">練習模式：</span>
-          </div>
-
-          <button id="btn-random-3" class="win98-button">新題模式</button>
-          <button id="btn-start-selected" class="win98-button">開始練習勾選題目</button>
-          <button id="btn-start-browse" class="win98-button">瀏覽模式</button>
-          <button id="btn-start-mobile-browse" class="win98-button">觸控瀏覽模式</button>
-          <button id="btn-view-log" class="win98-button">查看練習紀錄</button>
         </div>
 
         <div class="display-options mt-4">
