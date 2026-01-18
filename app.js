@@ -163,6 +163,11 @@ function bindEvents() {
   if (btnPredictPrev) btnPredictPrev.addEventListener('click', predictPrevQuestion);
   const btnPredictNext = document.getElementById('btn-predict-next');
   if (btnPredictNext) btnPredictNext.addEventListener('click', predictNextQuestion);
+  const btnPracticeBack = document.getElementById('btn-practice-back');
+  if (btnPracticeBack) btnPracticeBack.addEventListener('click', () => {
+    isBrowseMode = false;
+    returnToListFromPractice();
+  });
   
   // 練習頁面
   document.getElementById('btn-timer-toggle').addEventListener('click', toggleTimer);
@@ -202,6 +207,11 @@ function bindEvents() {
       const v = parseInt(btn.dataset.value, 10);
       logMobileBrowseRating(v);
     });
+  });
+  const btnMobileBrowseBack = document.getElementById('btn-mobile-browse-back');
+  if (btnMobileBrowseBack) btnMobileBrowseBack.addEventListener('click', () => {
+    isMobileBrowse = false;
+    returnToListFromPractice();
   });
   
   // Summary
@@ -1920,6 +1930,11 @@ function startPracticePage() {
   showPage('practice');
   displayQuestion(0);
   startTimer();
+}
+
+function returnToListFromPractice() {
+  showPage('list');
+  initListPage();
 }
 
 function displayQuestion(index) {
