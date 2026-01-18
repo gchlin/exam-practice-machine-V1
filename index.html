@@ -157,36 +157,61 @@
     
     <!-- 標題列 -->
     <div class="win98-titlebar">
-      <div class="win98-titlebar-text">刷題機 V2.0</div>
-      <div class="theme-switcher">
-        <div class="theme-btn active" onclick="switchTheme('win98')" id="theme-win98">復古</div>
-        <div class="theme-btn" onclick="switchTheme('pastel')" id="theme-pastel">柔和</div>
+      <!-- 左側：返回 + 標題 + 麵包屑 -->
+      <div class="titlebar-left">
+        <button class="titlebar-back-btn" id="btn-titlebar-back" title="返回" style="display:none;">←</button>
+        <span class="win98-titlebar-text">刷題機 V2.0</span>
+        <span class="breadcrumb" id="breadcrumb"></span>
       </div>
-      <div class="win98-titlebar-buttons">
-        <div class="win98-titlebar-button">_</div>
-        <div class="win98-titlebar-button">□</div>
-        <div class="win98-titlebar-button">✕</div>
+
+      <!-- 右側：計時器 + 主題 + 帳號 -->
+      <div class="titlebar-right">
+        <div class="titlebar-timer" id="titlebar-timer" style="display:none;">
+          <span class="timer-text">總 <span id="titlebar-timer-total">00:00</span></span>
+          <span class="timer-sep">|</span>
+          <span class="timer-text">本題 <span id="titlebar-timer-single">00:00</span></span>
+          <button class="timer-ctrl-btn" id="btn-titlebar-timer-toggle" title="開始/暫停">▶</button>
+          <button class="timer-ctrl-btn" id="btn-titlebar-timer-reset" title="重設">↻</button>
+        </div>
+        <div class="theme-switcher">
+          <div class="theme-btn active" onclick="switchTheme('win98')" id="theme-win98">復古</div>
+          <div class="theme-btn" onclick="switchTheme('pastel')" id="theme-pastel">柔和</div>
+        </div>
+        <button class="auth-icon-btn" id="btn-open-auth" title="帳號設定">👤</button>
+        <div class="win98-titlebar-buttons">
+          <div class="win98-titlebar-button">_</div>
+          <div class="win98-titlebar-button">□</div>
+          <div class="win98-titlebar-button">✕</div>
+        </div>
       </div>
     </div>
 
-    <!-- 選單列 -->
-    <div class="win98-menubar">
-      檔案(F) 編輯(E) 檢視(V) 工具(T) 說明(H)
-    </div>
-
-    <!-- 登入/註冊 -->
-    <div class="auth-box">
-      <input id="auth-email" type="email" placeholder="Email" class="win98-input">
-      <input id="auth-password" type="password" placeholder="Password" class="win98-input">
-      <button id="btn-signup" class="win98-button small">註冊</button>
-      <button id="btn-signin" class="win98-button small">登入</button>
-      <button id="btn-signout" class="win98-button small" style="display:none;">登出</button>
-      <span id="auth-status" class="auth-status">未登入</span>
-      <label class="small" style="display:flex; align-items:center; gap:4px; margin-left:8px;">
-        <input type="checkbox" id="toggle-bg-sync" style="margin:0;">
-        <span>啟用背景同步</span>
-      </label>
-      <span class="small" style="color:#666;">（換裝置前請按 ☁️ 同步）</span>
+    <!-- 登入/註冊彈窗 -->
+    <div class="auth-modal" id="auth-modal" style="display:none;">
+      <div class="auth-modal-content">
+        <div class="auth-modal-header">
+          <span>帳號設定</span>
+          <button class="auth-modal-close" id="btn-close-auth">✕</button>
+        </div>
+        <div class="auth-modal-body">
+          <div class="auth-status-row">
+            <span>狀態：</span>
+            <span id="auth-status" class="auth-status">未登入</span>
+          </div>
+          <input id="auth-email" type="email" placeholder="Email" class="win98-input">
+          <input id="auth-password" type="password" placeholder="Password" class="win98-input">
+          <div class="auth-btn-row">
+            <button id="btn-signup" class="win98-button small">註冊</button>
+            <button id="btn-signin" class="win98-button small">登入</button>
+            <button id="btn-signout" class="win98-button small" style="display:none;">登出</button>
+          </div>
+          <label class="auth-sync-label">
+            <input type="checkbox" id="toggle-bg-sync">
+            <span>啟用背景同步</span>
+          </label>
+          <div class="auth-hint">換裝置前請按 ☁️ 同步</div>
+        </div>
+      </div>
     </div>
 
     <!-- 主要內容 -->
@@ -252,120 +277,127 @@
               <div class="small" id="month-stats-text">本月：0天 / 0題 / 0分鐘</div>
               <div class="motivational-quote">"持之以恆，必有所成"</div>
             </div>
-            <!-- 功能按鈕 -->
-            <div class="top-buttons">
+          </div>
+        </div>
+
+        <div class="mobile-layout">
+          <!-- 合併：模式選擇 + 開始按鈕 -->
+          <div class="mobile-start-row">
+            <div class="mobile-mode-radios">
+              <label class="mode-option">
+                <input type="radio" name="mobile-practice-mode" value="new" checked>
+                新題
+              </label>
+              <label class="mode-option">
+                <input type="radio" name="mobile-practice-mode" value="browse">
+                瀏覽
+              </label>
+              <label class="mode-option">
+                <input type="radio" name="mobile-practice-mode" value="mobile">
+                觸控
+              </label>
+            </div>
+            <button id="btn-mobile-main-practice" class="win98-button mobile-main-button">開始練習</button>
+          </div>
+          <div class="mobile-secondary-actions">
+            <button id="btn-start-selected" class="win98-button small">勾選題目練習</button>
+            <button id="btn-open-filter-modal" class="win98-button small">篩選</button>
+          </div>
+
+          <!-- 篩選彈窗 -->
+          <div id="filter-modal" class="modal" style="display: none;">
+            <div class="modal-content filter-modal-content">
+              <div class="modal-header">篩選條件</div>
+              <div class="filter-grid">
+                <label class="small">
+                  章節
+                  <select id="filter-chapter" class="win98-input">
+                    <option value="">全部</option>
+                  </select>
+                </label>
+                <label class="small">
+                  作答狀態
+                  <select id="filter-status" class="win98-input">
+                    <option value="">全部</option>
+                    <option value="last-correct">上次對</option>
+                    <option value="last-wrong">上次錯</option>
+                    <option value="never">沒做過</option>
+                  </select>
+                </label>
+                <label class="small">
+                  年份
+                  <select id="filter-year" class="win98-input">
+                    <option value="">全部</option>
+                  </select>
+                </label>
+                <label class="small">
+                  學校
+                  <select id="filter-school" class="win98-input">
+                    <option value="">全部</option>
+                  </select>
+                </label>
+                <label class="small">
+                  招考
+                  <select id="filter-recruitment" class="win98-input">
+                    <option value="">全部</option>
+                    <option value="公考">公考</option>
+                    <option value="校考">校考</option>
+                  </select>
+                </label>
+                <label class="small">
+                  題型
+                  <select id="filter-type" class="win98-input">
+                    <option value="">全部</option>
+                  </select>
+                </label>
+                <label class="small">
+                  語言
+                  <select id="filter-lang" class="win98-input">
+                    <option value="">全部</option>
+                    <option value="zh">中文</option>
+                    <option value="en">英文</option>
+                  </select>
+                </label>
+                <label class="small">
+                  難度
+                  <select id="filter-rating" class="win98-input">
+                    <option value="">全部</option>
+                    <option value="1">1 ★</option>
+                    <option value="2">2 ★</option>
+                    <option value="3">3 ★</option>
+                    <option value="4">4 ★</option>
+                    <option value="5">5 ★</option>
+                  </select>
+                </label>
+                <label class="small">
+                  搜尋
+                  <input type="text" id="filter-search" class="win98-input" placeholder="題目/關鍵字/筆記關鍵字">
+                </label>
+              </div>
+              <div class="filter-actions modal-actions">
+                <button id="btn-apply-filter" class="win98-button">套用</button>
+                <button id="btn-reset-filter" class="win98-button">重設</button>
+                <button id="btn-close-filter" class="win98-button">取消</button>
+              </div>
+            </div>
+          </div>
+
+          <details class="mobile-tools-panel">
+            <summary>▶ 工具</summary>
+            <div class="mobile-tools-grid">
               <button id="btn-sync-cloud" class="win98-button small" title="雲端同步（跨裝置）">☁️ 同步</button>
               <button id="btn-reload-questions" class="win98-button small" title="強制重新下載題庫（避免快取）">🔄 更新題庫</button>
               <button id="btn-export-logs" class="win98-button small" title="匯出答題記錄">📤 匯出</button>
               <button id="btn-import-logs" class="win98-button small" title="匯入答題記錄">📥 匯入</button>
-              <button id="btn-show-stats" class="win98-button small">統計分析</button>
-              <button id="btn-show-coverage" class="win98-button small">收錄題目列表</button>
+              <button id="btn-export-pdf" class="win98-button small">匯出 PDF</button>
             </div>
-          </div>
-        </div>
+          </details>
 
-        <!-- 工具列 -->
-        <div class="toolbar">
-          <!-- 主篩選 -->
-          <div class="toolbar-group">
-            <span class="label">主要篩選：</span>
-            <label class="small">
-              章節
-              <select id="filter-chapter" class="win98-input">
-                <option value="">全部</option>
-              </select>
-            </label>
-            <label class="small">
-              作答狀態
-              <select id="filter-status" class="win98-input">
-                <option value="">全部</option>
-                <option value="last-correct">上次對</option>
-                <option value="last-wrong">上次錯</option>
-                <option value="never">沒做過</option>
-              </select>
-            </label>
+          <div class="mobile-bottom-links">
+            <button id="btn-show-stats" class="win98-button small">統計分析</button>
+            <button id="btn-show-coverage" class="win98-button small">收錄題目列表</button>
+            <button id="btn-view-log" class="win98-button small">查看練習紀錄</button>
           </div>
-
-          <div class="toolbar-group">
-            <button id="btn-apply-filter" class="win98-button">套用篩選</button>
-            <button id="btn-reset-filter" class="win98-button">重設</button>
-            <button id="btn-toggle-advanced" class="win98-button">進階篩選</button>
-            <button id="btn-export-pdf" class="win98-button">匯出 PDF</button>
-          </div>
-        </div>
-
-        <div class="toolbar" id="advanced-filters" style="display: none;">
-          <div class="toolbar-group">
-            <span class="label">進階：</span>
-            <label class="small">
-              年份
-              <select id="filter-year" class="win98-input">
-                <option value="">全部</option>
-              </select>
-            </label>
-            <label class="small">
-              學校
-              <select id="filter-school" class="win98-input">
-                <option value="">全部</option>
-              </select>
-            </label>
-            <label class="small">
-              招考
-              <select id="filter-recruitment" class="win98-input">
-                <option value="">全部</option>
-                <option value="公考">公考</option>
-                <option value="校考">校考</option>
-              </select>
-            </label>
-          </div>
-
-          <div class="toolbar-group">
-            <label class="small">
-              題型
-              <select id="filter-type" class="win98-input">
-                <option value="">全部</option>
-              </select>
-            </label>
-            <label class="small">
-              語言
-              <select id="filter-lang" class="win98-input">
-                <option value="">全部</option>
-                <option value="zh">中文</option>
-                <option value="en">英文</option>
-              </select>
-            </label>
-            <label class="small">
-              難度
-              <select id="filter-rating" class="win98-input">
-                <option value="">全部</option>
-                <option value="1">1 ★</option>
-                <option value="2">2 ★</option>
-                <option value="3">3 ★</option>
-                <option value="4">4 ★</option>
-                <option value="5">5 ★</option>
-              </select>
-            </label>
-          </div>
-
-          <div class="toolbar-group">
-            <label class="small">
-              搜尋題目／文字／筆記
-              <input type="text" id="filter-search" class="win98-input" placeholder="題目/關鍵字/筆記關鍵字">
-            </label>
-          </div>
-        </div>
-
-        <!-- 練習模式 -->
-        <div class="toolbar mt-4">
-          <div class="toolbar-group">
-            <span class="label">練習模式：</span>
-          </div>
-
-          <button id="btn-random-3" class="win98-button">新題模式</button>
-          <button id="btn-start-selected" class="win98-button">開始練習勾選題目</button>
-          <button id="btn-start-browse" class="win98-button">瀏覽模式</button>
-          <button id="btn-start-mobile-browse" class="win98-button">觸控瀏覽模式</button>
-          <button id="btn-view-log" class="win98-button">查看練習紀錄</button>
         </div>
 
         <div class="display-options mt-4">
@@ -450,6 +482,12 @@
           </div>
         </div>
 
+        <div class="predict-nav mt-4">
+          <button id="btn-predict-prev" class="win98-button small">上一題</button>
+          <button id="btn-predict-next" class="win98-button small ml-4">下一題</button>
+          <span class="small ml-4">也可點擊按鈕切換</span>
+        </div>
+
         <div class="mt-8">
           <button id="btn-back-to-list" class="win98-button">回列表</button>
           <button id="btn-start-practice" class="win98-button">開始正式刷題 (Enter)</button>
@@ -458,17 +496,22 @@
 
       <!-- ========== 頁面 3: 正式刷題 ========== -->
       <div id="page-practice" class="page">
-        <div class="section-title">正式刷題</div>
+        <!-- 桌面版：保留原本按鈕（手機版隱藏） -->
+        <div class="desktop-only">
+          <div class="section-title">正式刷題</div>
+          <div class="mt-4">
+            <button id="btn-practice-back" class="win98-button small">回題庫列表</button>
+          </div>
+        </div>
 
-        <!-- 題目資訊 -->
-        <div class="practice-header">
+        <!-- 桌面版：原本的計時器（手機版隱藏，移到標題列） -->
+        <div class="practice-header desktop-only">
           <div class="practice-info highlight">
-            第 <span id="current-num">1</span> / <span id="total-num">1</span> 題 | 
-            Q_ID: <span id="current-qid">-</span> | 
+            第 <span id="current-num">1</span> / <span id="total-num">1</span> 題 |
+            Q_ID: <span id="current-qid">-</span> |
             <span id="current-meta">-</span>
           </div>
-          
-          <!-- 雙計時器 -->
+
           <div class="timer-group">
             <div class="timer-item">
               <span class="label">總時間:</span>
@@ -487,7 +530,14 @@
         <div class="practice-layout">
           <!-- 左側：題目圖片 -->
           <div class="practice-left">
-            <div class="small mb-4">題目圖片（點擊放大）：</div>
+            <div class="practice-left-header">
+              <span class="small">題目圖片（點擊放大）</span>
+              <span class="practice-info-inline" id="practice-info-inline">
+                第 <span id="current-num-mobile">1</span>/<span id="total-num-mobile">1</span> 題 |
+                <span id="current-qid-mobile">-</span> |
+                <span id="current-meta-mobile">-</span>
+              </span>
+            </div>
             <div class="image-frame">
               <img id="practice-problem-img" class="problem-image" alt="題目圖片" onclick="enlargeImage(this.src)">
             </div>
@@ -551,24 +601,23 @@
           </div>
         </div>
 
-        <!-- 手機專用固定操作列 -->
+        <!-- 手機專用固定操作列 (2層精簡版) -->
+        <!-- 懸浮導航按鈕 -->
+        <button class="mobile-float-btn mobile-float-prev" id="mobile-prev">‹</button>
+        <button class="mobile-float-btn mobile-float-next" id="mobile-next">›</button>
+
+        <!-- 底部操作列 (單層) -->
         <div class="mobile-action-bar" id="mobile-action-bar" style="display: none;">
-          <!-- 上方快速操作 -->
-          <div class="mobile-quick-actions">
-            <button class="mobile-btn mobile-btn-secondary" id="mobile-prev">←</button>
+          <div class="mobile-single-row">
+            <button class="mobile-btn mobile-btn-ghost mobile-btn-correct" id="mobile-correct">✓</button>
+            <button class="mobile-btn mobile-btn-ghost mobile-btn-wrong" id="mobile-wrong">✗</button>
+            <button class="mobile-btn mobile-btn-ghost mobile-btn-skip" id="mobile-skip">⊘</button>
             <button class="mobile-btn mobile-btn-primary" id="mobile-toggle-answer">顯示解答</button>
-            <button class="mobile-btn mobile-btn-secondary" id="mobile-next">→</button>
+            <button class="mobile-btn mobile-btn-ghost mobile-btn-difficulty" id="mobile-difficulty-btn">★</button>
           </div>
 
-          <!-- 主要作答按鈕 -->
-          <div class="mobile-main-actions">
-            <button class="mobile-btn mobile-btn-correct" id="mobile-correct">✓ 正確</button>
-            <button class="mobile-btn mobile-btn-wrong" id="mobile-wrong">✗ 錯誤</button>
-            <button class="mobile-btn mobile-btn-skip" id="mobile-skip">⊘ 跳過</button>
-          </div>
-
-          <!-- 難度評分 -->
-          <div class="mobile-difficulty">
+          <!-- 難度評分彈窗 (隱藏) -->
+          <div class="mobile-difficulty" id="mobile-difficulty-panel">
             <span class="mobile-label">難度：</span>
             <div class="mobile-stars" id="mobile-difficulty-stars">
               <button class="mobile-star" data-value="1">★</button>
@@ -623,6 +672,9 @@
               <button class="mb-star" data-value="5">★</button>
             </div>
             <button id="mb-next" class="mobile-browse-btn">下一題</button>
+          </div>
+          <div class="mt-4">
+            <button id="btn-mobile-browse-back" class="mobile-btn mobile-btn-secondary">回列表</button>
           </div>
         </div>
       </div>

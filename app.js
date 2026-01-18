@@ -42,6 +42,7 @@ let dailyStats = {};
 
 // 未完成會話
 let unfinishedSession = null;
+let currentPage = 'list';  // 當前頁面
 let questionBankMeta = { version: 'unknown', hash: 'unknown' };
 let lastQuestionCount = 0;
 let questionCoverage = { years: [], schools: [], matrix: {} };
@@ -107,12 +108,17 @@ function bindEvents() {
   document.getElementById('btn-load-csv').addEventListener('click', loadQuestionBank);
   
   // 篩選
-  document.getElementById('btn-apply-filter').addEventListener('click', applyFilters);
+  document.getElementById('btn-apply-filter').addEventListener('click', () => {
+    applyFilters();
+    closeFilterModal();
+  });
   document.getElementById('btn-reset-filter').addEventListener('click', resetFilters);
-  const btnToggleAdvanced = document.getElementById('btn-toggle-advanced');
-  if (btnToggleAdvanced) {
-    btnToggleAdvanced.addEventListener('click', toggleAdvancedFilters);
-  }
+
+  // 篩選彈窗控制
+  const btnOpenFilter = document.getElementById('btn-open-filter-modal');
+  const btnCloseFilter = document.getElementById('btn-close-filter');
+  if (btnOpenFilter) btnOpenFilter.addEventListener('click', openFilterModal);
+  if (btnCloseFilter) btnCloseFilter.addEventListener('click', closeFilterModal);
   
   // 全選
   document.getElementById('chk-all').addEventListener('change', toggleSelectAll);
@@ -122,14 +128,9 @@ function bindEvents() {
   if (randomModeSelect) randomModeSelect.addEventListener('change', updateRandomOptions);
   
   // 隨機3題
-  document.getElementById('btn-random-3').addEventListener('click', startRandom3);
-  
-  // 開始練習選中題目
   document.getElementById('btn-start-selected').addEventListener('click', startSelectedPractice);
-  // 瀏覽模式
-  document.getElementById('btn-start-browse').addEventListener('click', startBrowseMode);
-  // 手機瀏覽模式
-  document.getElementById('btn-start-mobile-browse').addEventListener('click', startMobileBrowseMode);
+  const btnMobileMainPractice = document.getElementById('btn-mobile-main-practice');
+  if (btnMobileMainPractice) btnMobileMainPractice.addEventListener('click', handleMobileMainPractice);
   // 檢視練習紀錄
   document.getElementById('btn-view-log').addEventListener('click', () => {
     renderLogPage();
@@ -144,6 +145,21 @@ function bindEvents() {
   
   // 雲端同步
   document.getElementById('btn-sync-cloud').addEventListener('click', () => syncToSupabase(true));
+
+  // 帳號設定彈窗
+  const btnOpenAuth = document.getElementById('btn-open-auth');
+  const btnCloseAuth = document.getElementById('btn-close-auth');
+  const authModal = document.getElementById('auth-modal');
+  if (btnOpenAuth) btnOpenAuth.addEventListener('click', () => {
+    if (authModal) authModal.style.display = 'flex';
+  });
+  if (btnCloseAuth) btnCloseAuth.addEventListener('click', () => {
+    if (authModal) authModal.style.display = 'none';
+  });
+  // 點擊背景關閉彈窗
+  if (authModal) authModal.addEventListener('click', (e) => {
+    if (e.target === authModal) authModal.style.display = 'none';
+  });
   
   // 重新載入題庫
   document.getElementById('btn-reload-questions').addEventListener('click', reloadQuestions);
@@ -159,7 +175,29 @@ function bindEvents() {
   // 預測頁面
   document.getElementById('btn-back-to-list').addEventListener('click', () => showPage('list'));
   document.getElementById('btn-start-practice').addEventListener('click', startPracticeFromPredict);
+  const btnPredictPrev = document.getElementById('btn-predict-prev');
+  if (btnPredictPrev) btnPredictPrev.addEventListener('click', predictPrevQuestion);
+  const btnPredictNext = document.getElementById('btn-predict-next');
+  if (btnPredictNext) btnPredictNext.addEventListener('click', predictNextQuestion);
+  const btnPracticeBack = document.getElementById('btn-practice-back');
+  if (btnPracticeBack) btnPracticeBack.addEventListener('click', () => {
+    isBrowseMode = false;
+    returnToListFromPractice();
+  });
   
+  // 標題列返回按鈕
+  const btnTitlebarBack = document.getElementById('btn-titlebar-back');
+  if (btnTitlebarBack) btnTitlebarBack.addEventListener('click', () => {
+    isBrowseMode = false;
+    returnToListFromPractice();
+  });
+
+  // 標題列計時器按鈕
+  const btnTitlebarTimerToggle = document.getElementById('btn-titlebar-timer-toggle');
+  const btnTitlebarTimerReset = document.getElementById('btn-titlebar-timer-reset');
+  if (btnTitlebarTimerToggle) btnTitlebarTimerToggle.addEventListener('click', toggleTimer);
+  if (btnTitlebarTimerReset) btnTitlebarTimerReset.addEventListener('click', resetTimer);
+
   // 練習頁面
   document.getElementById('btn-timer-toggle').addEventListener('click', toggleTimer);
   document.getElementById('btn-timer-reset').addEventListener('click', resetTimer);
@@ -198,6 +236,11 @@ function bindEvents() {
       const v = parseInt(btn.dataset.value, 10);
       logMobileBrowseRating(v);
     });
+  });
+  const btnMobileBrowseBack = document.getElementById('btn-mobile-browse-back');
+  if (btnMobileBrowseBack) btnMobileBrowseBack.addEventListener('click', () => {
+    isMobileBrowse = false;
+    returnToListFromPractice();
   });
   
   // Summary
@@ -397,6 +440,16 @@ function bindMobileEvents() {
   if (mobileWrong) mobileWrong.addEventListener('click', () => recordResult('Incorrect'));
   if (mobileSkip) mobileSkip.addEventListener('click', () => recordResult('Skipped'));
 
+  // 難度按鈕 - 切換難度面板顯示
+  const mobileDiffBtn = document.getElementById('mobile-difficulty-btn');
+  const mobileDiffPanel = document.getElementById('mobile-difficulty-panel');
+  if (mobileDiffBtn && mobileDiffPanel) {
+    mobileDiffBtn.addEventListener('click', () => {
+      const isVisible = mobileDiffPanel.style.display === 'flex';
+      mobileDiffPanel.style.display = isVisible ? 'none' : 'flex';
+    });
+  }
+
   // 難度評分星星
   const mobileStars = document.querySelectorAll('.mobile-star');
   mobileStars.forEach(star => {
@@ -405,6 +458,8 @@ function bindMobileEvents() {
       setDifficulty(value);
       // 更新手機星星狀態
       updateMobileStars(value);
+      // 選完後隱藏面板
+      if (mobileDiffPanel) mobileDiffPanel.style.display = 'none';
     });
   });
 
@@ -442,15 +497,21 @@ function bindMobileEvents() {
 
 function updateMobileBarVisibility() {
   const mobileBar = document.getElementById('mobile-action-bar');
-  if (!mobileBar) return;
+  const floatPrev = document.querySelector('.mobile-float-prev');
+  const floatNext = document.querySelector('.mobile-float-next');
 
   const isMobileMode = document.body.classList.contains('mobile-mode');
   const isPracticePage = currentPage === 'practice';
+  const shouldShow = isMobileMode && isPracticePage;
 
-  if (isMobileMode && isPracticePage) {
-    mobileBar.style.display = 'flex';
-  } else {
-    mobileBar.style.display = 'none';
+  if (mobileBar) {
+    mobileBar.style.display = shouldShow ? 'flex' : 'none';
+  }
+  if (floatPrev) {
+    floatPrev.style.display = shouldShow ? 'flex' : 'none';
+  }
+  if (floatNext) {
+    floatNext.style.display = shouldShow ? 'flex' : 'none';
   }
 }
 
@@ -1281,18 +1342,6 @@ function applyFilters() {
   renderQuestionList();
 }
 
-function toggleAdvancedFilters() {
-  const panel = document.getElementById('advanced-filters');
-  const btn = document.getElementById('btn-toggle-advanced');
-  if (!panel) return;
-  const shouldShow = panel.style.display === 'none' || !panel.style.display;
-  panel.style.display = shouldShow ? '' : 'none';
-  if (btn) {
-    btn.textContent = shouldShow ? '基本篩選' : '進階篩選';
-  }
-}
-
-
 function resetFilters() {
   document.getElementById('filter-year').value = '';
   document.getElementById('filter-school').value = '';
@@ -1303,10 +1352,6 @@ function resetFilters() {
   document.getElementById('filter-lang').value = '';
   document.getElementById('filter-rating').value = '';
   document.getElementById('filter-search').value = '';
-  const adv = document.getElementById('advanced-filters');
-  if (adv) adv.style.display = 'none';
-  const btn = document.getElementById('btn-toggle-advanced');
-  if (btn) btn.textContent = '進階篩選';
   
   applyFilters();
 }
@@ -1678,6 +1723,22 @@ function startPracticeWithQuestions(questions) {
   }
 }
 
+function getSelectedMobilePracticeMode() {
+  const radio = document.querySelector('input[name="mobile-practice-mode"]:checked');
+  return radio ? radio.value : 'new';
+}
+
+function handleMobileMainPractice() {
+  const mode = getSelectedMobilePracticeMode();
+  if (mode === 'browse') {
+    startBrowseMode();
+  } else if (mode === 'mobile') {
+    startMobileBrowseMode();
+  } else {
+    startRandom3();
+  }
+}
+
 // ==================== 匯出 PDF ====================
 
 
@@ -1918,6 +1979,11 @@ function startPracticePage() {
   startTimer();
 }
 
+function returnToListFromPractice() {
+  showPage('list');
+  initListPage();
+}
+
 function displayQuestion(index) {
   if (index < 0 || index >= practiceQuestions.length) return;
   
@@ -1925,11 +1991,21 @@ function displayQuestion(index) {
   const q = practiceQuestions[index];
   const qid = getQID(q);
   
-  // 更新標題資訊
+  // 更新標題資訊（桌面版）
   document.getElementById('current-num').textContent = index + 1;
   document.getElementById('total-num').textContent = practiceQuestions.length;
   document.getElementById('current-qid').textContent = qid;
   document.getElementById('current-meta').textContent = `${q.Year || '-'} ${q.School || '-'} [${q.Chapter || '-'}]`;
+
+  // 更新標題資訊（手機版 - 題目框旁）
+  const currentNumMobile = document.getElementById('current-num-mobile');
+  const totalNumMobile = document.getElementById('total-num-mobile');
+  const currentQidMobile = document.getElementById('current-qid-mobile');
+  const currentMetaMobile = document.getElementById('current-meta-mobile');
+  if (currentNumMobile) currentNumMobile.textContent = index + 1;
+  if (totalNumMobile) totalNumMobile.textContent = practiceQuestions.length;
+  if (currentQidMobile) currentQidMobile.textContent = qid;
+  if (currentMetaMobile) currentMetaMobile.textContent = `${q.Year || '-'} [${q.Chapter || '-'}]`;
   
   // 顯示題目圖片
   const problemImg = document.getElementById('practice-problem-img');
@@ -2529,13 +2605,16 @@ function showDayDetail(date) {
 
 function toggleTimer() {
   const btn = document.getElementById('btn-timer-toggle');
-  
+  const titlebarBtn = document.getElementById('btn-titlebar-timer-toggle');
+
   if (timerInterval) {
     stopTimer();
-    btn.textContent = '開始';
+    if (btn) btn.textContent = '開始';
+    if (titlebarBtn) titlebarBtn.textContent = '▶';
   } else {
     startTimer();
-    btn.textContent = '暫停';
+    if (btn) btn.textContent = '暫停';
+    if (titlebarBtn) titlebarBtn.textContent = '⏸';
   }
 }
 
@@ -2582,13 +2661,23 @@ function resetTimer() {
   updateTotalTimerDisplay(0);
   updateSingleTimerDisplay();
   document.getElementById('btn-timer-toggle').textContent = '開始';
+  // 更新標題列計時器按鈕
+  const titlebarToggle = document.getElementById('btn-titlebar-timer-toggle');
+  if (titlebarToggle) titlebarToggle.textContent = '▶';
 }
 
 function updateTotalTimerDisplay(seconds) {
   const minutes = Math.floor(seconds / 60);
   const secs = seconds % 60;
-  document.getElementById('timer-total').textContent = 
-    `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  const timeStr = `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+
+  // 更新桌面版計時器
+  const timerTotal = document.getElementById('timer-total');
+  if (timerTotal) timerTotal.textContent = timeStr;
+
+  // 更新標題列計時器
+  const titlebarTotal = document.getElementById('titlebar-timer-total');
+  if (titlebarTotal) titlebarTotal.textContent = timeStr;
 }
 
 function updateSingleTimerDisplay(seconds = null) {
@@ -2596,11 +2685,18 @@ function updateSingleTimerDisplay(seconds = null) {
     const qid = getQID(practiceQuestions[currentIndex]);
     seconds = questionTimes[qid] || 0;
   }
-  
+
   const minutes = Math.floor(seconds / 60);
   const secs = seconds % 60;
-  document.getElementById('timer-single').textContent = 
-    `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  const timeStr = `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+
+  // 更新桌面版計時器
+  const timerSingle = document.getElementById('timer-single');
+  if (timerSingle) timerSingle.textContent = timeStr;
+
+  // 更新標題列計時器
+  const titlebarSingle = document.getElementById('titlebar-timer-single');
+  if (titlebarSingle) titlebarSingle.textContent = timeStr;
 }
 
 // ==================== 未完成會話 ====================
@@ -2646,10 +2742,11 @@ function continuePractice() {
 // ==================== 工具函數 ====================
 
 function showPage(pageName) {
+  currentPage = pageName;  // 更新當前頁面
   document.querySelectorAll('.page').forEach(page => {
     page.classList.remove('active');
   });
-  
+
   const page = document.getElementById(`page-${pageName}`);
   if (page) {
     page.classList.add('active');
@@ -2657,6 +2754,58 @@ function showPage(pageName) {
       renderLogPage();
     }
   }
+
+  // 更新手機操作列顯示
+  if (typeof updateMobileBarVisibility === 'function') {
+    updateMobileBarVisibility();
+  }
+
+  // 更新標題列（麵包屑、返回按鈕、計時器）
+  updateTitlebar(pageName);
+}
+
+// 更新標題列元素
+function updateTitlebar(pageName) {
+  const backBtn = document.getElementById('btn-titlebar-back');
+  const breadcrumb = document.getElementById('breadcrumb');
+  const titlebarTimer = document.getElementById('titlebar-timer');
+
+  // 頁面名稱對應
+  const pageNames = {
+    'load': '載入題庫',
+    'list': '題庫列表',
+    'predict': '預測難度',
+    'practice': '正式刷題',
+    'log': '練習紀錄',
+    'summary': '練習總結'
+  };
+
+  // 返回按鈕：非首頁顯示
+  const showBack = pageName !== 'load' && pageName !== 'list';
+  if (backBtn) {
+    backBtn.style.display = showBack ? 'flex' : 'none';
+  }
+
+  // 麵包屑導航
+  if (breadcrumb) {
+    if (pageName === 'load' || pageName === 'list') {
+      breadcrumb.innerHTML = '';
+    } else {
+      const currentName = pageNames[pageName] || pageName;
+      breadcrumb.innerHTML = `/ <a onclick="goBackToList()">${pageNames['list']}</a> > ${currentName}`;
+    }
+  }
+
+  // 計時器：僅練習頁顯示
+  if (titlebarTimer) {
+    titlebarTimer.style.display = (pageName === 'practice') ? 'flex' : 'none';
+  }
+}
+
+// 返回題庫列表
+function goBackToList() {
+  isBrowseMode = false;
+  returnToListFromPractice();
 }
 
 function getQID(question) {
@@ -2751,6 +2900,16 @@ function renderStars(difficulty) {
 }
 
 // ==================== Modal 對話框 ====================
+
+function openFilterModal() {
+  const modal = document.getElementById('filter-modal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeFilterModal() {
+  const modal = document.getElementById('filter-modal');
+  if (modal) modal.style.display = 'none';
+}
 
 function showMessage(title, message, callback = null) {
   const modal = document.getElementById('message-modal');
