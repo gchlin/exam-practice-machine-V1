@@ -63,11 +63,21 @@
     th.sortable:hover { background: #e2e2e2; }
     tr:nth-child(odd) td { background: #fafafa; }
     img.preview {
-      max-width: 140px;
-      max-height: 140px;
+      width: 100%;
+      max-width: 100%;
+      max-height: 280px;
       display: block;
       margin-top: 4px;
       object-fit: contain;
+    }
+    .resizable-text {
+      display: block;
+      resize: horizontal;
+      overflow: auto;
+      padding: 2px 4px;
+      min-width: 80px;
+      max-width: 600px;
+      border-right: 1px dashed transparent;
     }
     .status-ok { color: #0a7f27; font-weight: 700; }
     .status-missing { color: #c00000; font-weight: 700; }
@@ -122,7 +132,7 @@
     <summary>多餘圖片列表</summary>
     <div id="orphan-list" style="max-height: 240px; overflow: auto; padding: 6px; border: 1px solid #dcdcdc; background: #fff; margin-top: 6px; font-size: 13px;"></div>
   </details>
-  <details id="stats-panel" style="margin-bottom: 12px;" open="false">
+  <details id="stats-panel" style="margin-bottom: 12px;">
     <summary>統計：Year / School 題數</summary>
     <table id="stats-table">
       <thead>
@@ -140,11 +150,14 @@
     <thead>
       <tr>
         <th class="sortable" data-sort="index" style="width:50px;">#</th>
-        <th class="sortable" data-sort="School">School</th>
-        <th class="sortable" data-sort="Year">Year</th>
-        <th class="sortable" data-sort="Question Type">Question Type</th>
-        <th class="sortable" data-sort="Problem Image">Problem Image</th>
-        <th class="sortable" data-sort="Answer Image">Answer Image</th>
+    <th class="sortable" data-sort="School">School</th>
+    <th class="sortable" data-sort="Year">Year</th>
+    <th class="sortable" data-sort="Question Type">Question Type</th>
+    <th class="sortable" data-sort="Extracted Text">
+      <div class="resizable-text">Extracted Text</div>
+    </th>
+    <th class="sortable" data-sort="Problem Image">Problem Image</th>
+    <th class="sortable" data-sort="Answer Image">Answer Image</th>
         <th style="width:110px;">檢查結果</th>
       </tr>
     </thead>
@@ -200,6 +213,13 @@
     btnLoad.addEventListener("click", handleCsvLoad);
     fileInput.addEventListener("change", handleCsvLoad);
 
+    const csvParseOptions = {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => processParsedRows(results.data || []),
+      error: handleCsvError
+    };
+
     function handleCsvLoad() {
       const file = fileInput.files && fileInput.files[0];
       if (!file) {
@@ -208,33 +228,30 @@
       }
 
       statusSpan.textContent = " 解析中...";
+      Papa.parse(file, csvParseOptions);
+    }
 
-      Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
-        complete: (results) => {
-          const rows = results.data || [];
-          allRows = rows.map((r, i) => ({
-            ...r,
-            index: i + 1,
-            broken: false,
-            brokenReason: ""
-          }));
-          buildReferenceSets();
-          buildStats();
-          statusSpan.textContent = ` 讀取 ${allRows.length} 筆`;
-          applyFilters();
-          if (imageFiles.length) detectOrphans();
-          if (toggleCheckLinks.checked) {
-            checkLinks(allRows);
-          }
-        },
-        error: (err) => {
-          console.error(err);
-          statusSpan.textContent = " 解析錯誤";
-          alert("CSV 解析失敗，請檢查檔案格式");
-        }
-      });
+    function processParsedRows(rows) {
+      allRows = rows.map((r, i) => ({
+        ...r,
+        index: i + 1,
+        broken: false,
+        brokenReason: ""
+      }));
+      buildReferenceSets();
+      buildStats();
+      statusSpan.textContent = ` 讀取 ${allRows.length} 筆`;
+      applyFilters();
+      if (imageFiles.length) detectOrphans();
+      if (toggleCheckLinks.checked) {
+        checkLinks(allRows);
+      }
+    }
+
+    function handleCsvError(err) {
+      console.error(err);
+      statusSpan.textContent = " 解析錯誤";
+      alert("CSV 解析失敗，請檢查檔案格式");
     }
 
     function applyFilters() {
@@ -276,6 +293,7 @@
         appendCell(tr, row["School"] || "");
         appendCell(tr, row["Year"] || "");
         appendCell(tr, row["Question Type"] || "");
+        appendResizableCell(tr, row["Extracted Text"] || "");
         appendCellWithLink(tr, row["Problem Image"], "Problem");
         appendCellWithLink(tr, row["Answer Image"], "Answer");
 
@@ -294,6 +312,15 @@
     function appendCell(tr, text) {
       const td = document.createElement("td");
       td.textContent = text;
+      tr.appendChild(td);
+    }
+
+    function appendResizableCell(tr, text) {
+      const td = document.createElement("td");
+      const wrapper = document.createElement("div");
+      wrapper.className = "resizable-text";
+      wrapper.textContent = text;
+      td.appendChild(wrapper);
       tr.appendChild(td);
     }
 
@@ -600,6 +627,26 @@
       const t = (text || "").toString().replace(/"/g, '""');
       return `"${t}"`;
     }
+
+    function adjustColumnWidths() {
+      ['School', 'Year', 'Question Type'].forEach(key => {
+        const th = document.querySelector(`#result-table th[data-sort="${key}"]`);
+        if (!th) return;
+        if (!th.dataset.originalWidth) {
+          const width = th.getBoundingClientRect().width;
+          if (width) th.dataset.originalWidth = width;
+        }
+        const original = parseFloat(th.dataset.originalWidth);
+        if (original) {
+          th.style.width = `${original / 4}px`;
+        }
+      });
+    }
+
+    window.addEventListener("load", () => {
+      adjustColumnWidths();
+      window.addEventListener("resize", adjustColumnWidths);
+    });
   </script>
 </body>
 </html>
