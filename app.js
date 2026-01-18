@@ -42,6 +42,7 @@ let dailyStats = {};
 
 // 未完成會話
 let unfinishedSession = null;
+let currentPage = 'list';  // 當前頁面
 let questionBankMeta = { version: 'unknown', hash: 'unknown' };
 let lastQuestionCount = 0;
 let questionCoverage = { years: [], schools: [], matrix: {} };
@@ -2677,16 +2678,22 @@ function continuePractice() {
 // ==================== 工具函數 ====================
 
 function showPage(pageName) {
+  currentPage = pageName;  // 更新當前頁面
   document.querySelectorAll('.page').forEach(page => {
     page.classList.remove('active');
   });
-  
+
   const page = document.getElementById(`page-${pageName}`);
   if (page) {
     page.classList.add('active');
     if (pageName === 'log') {
       renderLogPage();
     }
+  }
+
+  // 更新手機操作列顯示
+  if (typeof updateMobileBarVisibility === 'function') {
+    updateMobileBarVisibility();
   }
 }
 
