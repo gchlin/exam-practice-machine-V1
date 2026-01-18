@@ -948,30 +948,27 @@ body.compact-mode .win98-content {
   border-top: 2px solid #fff;
   box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.2);
   padding: 8px;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
   z-index: 999;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .mobile-quick-actions {
   display: grid;
-  grid-template-columns: 1fr 2fr 1fr;
-  gap: 6px;
+  grid-template-columns: 1fr 1.5fr 1fr;
+  gap: 8px;
 }
 
 .mobile-main-actions {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
 }
 
 .mobile-difficulty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 4px;
+  display: none; /* 隱藏獨立的星星列，改為按鈕觸發 */
 }
 
 .mobile-label {
@@ -982,13 +979,14 @@ body.compact-mode .win98-content {
 .mobile-btn {
   border: 2px outset #fff;
   background: #c0c0c0;
-  padding: 14px 10px;
-  font-size: 15px;
+  padding: 10px 8px;
+  font-size: 14px;
   font-weight: bold;
   cursor: pointer;
   font-family: inherit;
-  min-height: 52px;
+  min-height: 44px;
   transition: all 0.1s;
+  touch-action: manipulation;
 }
 
 .mobile-btn:active {
@@ -1021,6 +1019,11 @@ body.compact-mode .win98-content {
 .mobile-btn-skip {
   background: #808080;
   color: #fff;
+}
+
+.mobile-btn-difficulty {
+  background: #ffcc00;
+  color: #000;
 }
 
 .mobile-stars {
@@ -1069,7 +1072,7 @@ body.mobile-mode .page {
 }
 
 body.mobile-mode #page-practice {
-  padding-bottom: 250px !important;
+  padding-bottom: 130px !important;
 }
 
 body.mobile-mode .practice-controls {
@@ -1131,21 +1134,33 @@ body.mobile-mode .practice-controls {
     align-items: stretch;
   }
   
-  /* 頂部資訊欄 - 改為縱向 */
+  /* 頂部資訊欄 - 精簡 */
   .top-info-bar {
     flex-direction: column;
     align-items: stretch;
-    padding: 8px;
+    padding: 4px 8px;
+    gap: 4px;
   }
-  
+
   .info-left,
   .info-center,
   .info-right {
     width: 100%;
+    padding: 4px;
   }
-  
+
+  .info-left {
+    text-align: left;
+  }
+
   .info-center {
-    margin: 8px 0;
+    text-align: center;
+    justify-content: center;
+    margin: 4px 0;
+  }
+
+  .info-right {
+    text-align: right;
   }
   
   /* 熱力圖放大且換行 */
@@ -1214,21 +1229,35 @@ body.mobile-mode .practice-controls {
     max-height: 35px;
   }
   
-  /* 計時器 */
+  /* 計時器 - 改為橫向緊湊排列 */
   .timer-group {
-    flex-direction: column;
-    gap: 6px;
-    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 4px;
+    justify-content: center;
+    align-items: center;
   }
-  
+
   .timer-item {
-    width: 100%;
-    justify-content: space-between;
+    width: auto;
+    gap: 2px;
   }
-  
+
+  .timer-item .label {
+    font-size: 11px;
+  }
+
   .timer-display {
-    flex: 1;
-    font-size: 14px;
+    font-size: 13px;
+    min-width: 50px;
+    padding: 2px 6px;
+  }
+
+  #btn-timer-toggle,
+  #btn-timer-reset {
+    padding: 4px 8px;
+    font-size: 11px;
+    min-height: 28px;
   }
   
   /* 預測星星 - 加大觸控區域 */
@@ -1249,11 +1278,12 @@ body.mobile-mode .practice-controls {
     margin-bottom: 16px !important;
   }
 
-  /* 練習星星 */
+  /* 練習星星 - 放大到 44px */
   .stars .star {
-    font-size: 22px;
-    width: 26px;
-    height: 26px;
+    font-size: 28px;
+    width: 44px;
+    height: 44px;
+    line-height: 44px;
   }
 
   /* 預測頁面按鈕放大 */
@@ -1362,32 +1392,30 @@ body.mobile-mode .practice-controls {
     font-size: 12px;
   }
   
-  /* 完全隱藏熱力圖 */
+  /* 480px 以下 - 只保留題數，隱藏熱力圖和勵志語錄 */
   .heatmap-inline {
     display: none !important;
   }
-  
-  /* 用文字顯示統計 */
-  .info-center {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 8px;
-    background: #e0e0e0;
-    border: 1px solid #808080;
-    border-radius: 4px;
+
+  .info-center,
+  .info-right {
+    display: none !important;
   }
-  
-  /* 表格更窄 */
-  .col-school { width: 45px; font-size: 10px; }
-  .col-chapter { width: 60px; font-size: 10px; }
+
+  .info-left {
+    text-align: center;
+  }
+
+  /* 表格更窄 - 字體最小 12px */
+  .col-school { width: 45px; font-size: 12px; }
+  .col-chapter { width: 60px; font-size: 12px; }
   .col-image { display: none !important; }
-  .col-text { width: 110px; font-size: 10px; }
-  
+  .col-text { width: 100px; font-size: 12px; }
+
   .compact-table th,
   .compact-table td {
-    padding: 4px 2px;
-    font-size: 11px;
+    padding: 6px 3px;
+    font-size: 12px;
   }
   
   /* 按鈕更小 */
@@ -1401,17 +1429,17 @@ body.mobile-mode .practice-controls {
     font-size: 12px;
   }
   
-  /* 星星稍小 */
+  /* 星星 - 保持最小 44px 觸控目標 */
   .predict-stars .star {
-    width: 30px;
-    height: 30px;
-    font-size: 23px;
+    width: 44px !important;
+    height: 44px !important;
+    font-size: 26px !important;
   }
-  
+
   .stars .star {
-    font-size: 20px;
-    width: 24px;
-    height: 24px;
+    font-size: 24px;
+    width: 40px;
+    height: 40px;
   }
 }
 
@@ -1598,13 +1626,69 @@ body.mobile-mode .practice-controls {
 .mobile-layout {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-top: 12px;
+  gap: 6px;
+  margin-top: 8px;
 }
 
 .mobile-main-action .mobile-main-button {
   width: 100%;
   font-size: 16px;
+}
+
+/* 合併開始按鈕與模式選擇 */
+.mobile-start-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #e8e8e8;
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid #c0c0c0;
+}
+
+.mobile-mode-radios {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.mobile-start-row .mobile-main-button {
+  flex-shrink: 0;
+  min-width: 90px;
+  background: #000080;
+  color: #fff;
+}
+
+.mobile-secondary-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.mobile-secondary-actions .win98-button {
+  flex: 1;
+}
+
+/* 篩選彈窗 */
+.filter-modal-content {
+  max-width: 95%;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.filter-modal-content .filter-grid {
+  padding: 12px;
+}
+
+.filter-modal-content .modal-actions {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  border-top: 1px solid #c0c0c0;
+  justify-content: flex-end;
+}
+
+.filter-modal-content .modal-actions .win98-button {
+  min-width: 70px;
 }
 
 .mobile-mode-selector {
@@ -1648,7 +1732,7 @@ body.mobile-mode .practice-controls {
   font-weight: 600;
   display: flex;
   align-items: center;
-  padding: 10px 14px;
+  padding: 8px 12px;
   gap: 6px;
   border-bottom: 1px solid #e0e0e0;
   background: #fdfdfd;
@@ -1663,8 +1747,8 @@ body.mobile-mode .practice-controls {
 .filter-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 10px;
-  padding: 10px 14px;
+  gap: 8px;
+  padding: 8px 12px;
 }
 
 .filter-grid label {

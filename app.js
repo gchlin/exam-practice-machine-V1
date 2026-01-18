@@ -107,8 +107,17 @@ function bindEvents() {
   document.getElementById('btn-load-csv').addEventListener('click', loadQuestionBank);
   
   // 篩選
-  document.getElementById('btn-apply-filter').addEventListener('click', applyFilters);
+  document.getElementById('btn-apply-filter').addEventListener('click', () => {
+    applyFilters();
+    closeFilterModal();
+  });
   document.getElementById('btn-reset-filter').addEventListener('click', resetFilters);
+
+  // 篩選彈窗控制
+  const btnOpenFilter = document.getElementById('btn-open-filter-modal');
+  const btnCloseFilter = document.getElementById('btn-close-filter');
+  if (btnOpenFilter) btnOpenFilter.addEventListener('click', openFilterModal);
+  if (btnCloseFilter) btnCloseFilter.addEventListener('click', closeFilterModal);
   
   // 全選
   document.getElementById('chk-all').addEventListener('change', toggleSelectAll);
@@ -402,6 +411,16 @@ function bindMobileEvents() {
   if (mobileWrong) mobileWrong.addEventListener('click', () => recordResult('Incorrect'));
   if (mobileSkip) mobileSkip.addEventListener('click', () => recordResult('Skipped'));
 
+  // 難度按鈕 - 切換難度面板顯示
+  const mobileDiffBtn = document.getElementById('mobile-difficulty-btn');
+  const mobileDiffPanel = document.getElementById('mobile-difficulty-panel');
+  if (mobileDiffBtn && mobileDiffPanel) {
+    mobileDiffBtn.addEventListener('click', () => {
+      const isVisible = mobileDiffPanel.style.display === 'flex';
+      mobileDiffPanel.style.display = isVisible ? 'none' : 'flex';
+    });
+  }
+
   // 難度評分星星
   const mobileStars = document.querySelectorAll('.mobile-star');
   mobileStars.forEach(star => {
@@ -410,6 +429,8 @@ function bindMobileEvents() {
       setDifficulty(value);
       // 更新手機星星狀態
       updateMobileStars(value);
+      // 選完後隱藏面板
+      if (mobileDiffPanel) mobileDiffPanel.style.display = 'none';
     });
   });
 
@@ -2761,6 +2782,16 @@ function renderStars(difficulty) {
 }
 
 // ==================== Modal 對話框 ====================
+
+function openFilterModal() {
+  const modal = document.getElementById('filter-modal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeFilterModal() {
+  const modal = document.getElementById('filter-modal');
+  if (modal) modal.style.display = 'none';
+}
 
 function showMessage(title, message, callback = null) {
   const modal = document.getElementById('message-modal');
