@@ -159,6 +159,10 @@ function bindEvents() {
   // 預測頁面
   document.getElementById('btn-back-to-list').addEventListener('click', () => showPage('list'));
   document.getElementById('btn-start-practice').addEventListener('click', startPracticeFromPredict);
+  const btnPredictPrev = document.getElementById('btn-predict-prev');
+  if (btnPredictPrev) btnPredictPrev.addEventListener('click', predictPrevQuestion);
+  const btnPredictNext = document.getElementById('btn-predict-next');
+  if (btnPredictNext) btnPredictNext.addEventListener('click', predictNextQuestion);
   
   // 練習頁面
   document.getElementById('btn-timer-toggle').addEventListener('click', toggleTimer);
